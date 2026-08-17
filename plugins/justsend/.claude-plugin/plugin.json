@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "justsend",
   "displayName": "JustSend Work Memory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",
@@ -19,13 +19,6 @@
     "evidence"
   ],
   "userConfig": {
-    "helper_path": {
-      "type": "file",
-      "title": "JustSend MCP helper",
-      "description": "The JustSendMCP binary inside the installed JustSend app. Change this only if the app is not in /Applications.",
-      "default": "/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP",
-      "required": false
-    },
     "node_path": {
       "type": "file",
       "title": "Node executable",
@@ -35,10 +28,6 @@
     }
   },
   "mcpServers": {
-    "records": {
-      "type": "stdio",
-      "command": "${user_config.helper_path}"
-    },
     "contract": {
       "type": "stdio",
       "command": "${user_config.node_path}",

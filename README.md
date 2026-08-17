@@ -22,8 +22,35 @@ unproven criteria named.
 
 ## Install
 
-On **Claude Code** and **Codex** the plugin carries both MCP servers, so one
-install is the whole thing — no `mcp add` step:
+There are two pieces and they arrive differently.
+
+The **contract server** ships inside this plugin, so a plugin install is the
+whole story for it. The **record server is the JustSend app itself** — it listens
+on loopback HTTP while it runs, and the address and token belong to that machine.
+A plugin cannot carry them, so you register that one with values the app hands
+you.
+
+Get them from the app: **Settings → Agent access → Copy setup prompt**. It writes
+a prompt to the clipboard with your endpoint and token already substituted, and
+every command below in it. Paste that into your agent and it installs itself.
+
+The rest of this section is what that prompt does, if you would rather do it by
+hand. Substitute your own values for `PORT` and `TOKEN`.
+
+```
+URL    http://127.0.0.1:PORT/mcp
+```
+
+Two things follow from the app being the server:
+
+- **The app has to be running.** Close JustSend and the record tools are gone.
+  The contract server is unaffected; it is a node script.
+- **The port is stable.** It is chosen once and kept, so the URL you write into a
+  client config stays correct across restarts. If something else takes the port
+  while the app is closed, the app moves and says so on that settings row — copy
+  the prompt again.
+
+### Plugin
 
 ```bash
 claude plugin marketplace add clab-one/justsend-plugin
@@ -35,66 +62,90 @@ codex plugin marketplace add clab-one/justsend-plugin
 codex plugin add justsend@justsend-plugin
 ```
 
-Verify with `claude mcp list` / `codex mcp list`; you want two entries:
-
-```
-plugin:justsend:records:  /Applications/JustSendMac.app/Contents/MacOS/JustSendMCP  ✔ Connected
-plugin:justsend:contract: node .../plugins/justsend/mcp/contract.mjs                ✔ Connected
-```
-
-If you previously registered the server by hand, remove it. Claude Code hides the
-duplicate; Codex does not, and you end up with two copies of all 15 record tools:
-
-```bash
-codex mcp remove justsend
-claude mcp remove justsend -s user
-```
-
-The contract server runs on `node` from `PATH`, and the record server expects the
-app in `/Applications`. Override either at install time:
-
-```bash
-claude plugin install justsend@justsend-plugin --scope user \
-  --config node_path=/usr/local/bin/node \
-  --config helper_path=/Users/me/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP
-```
-
-### omp (17.1.3)
-
-omp reads the `.claude-plugin/marketplace.json` catalog and the manifest's
-`mcpServers`, so the contract server arrives with the plugin here too. It does
-not resolve `${user_config.*}`, so register the record server yourself in
-`~/.omp/agent/mcp.json`:
-
 ```bash
 omp plugin marketplace add clab-one/justsend-plugin
 omp plugin install justsend@justsend-plugin
 ```
 
-```json
-{
-  "mcpServers": { "justsend": { "type": "stdio", "command": "/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP" } }
-}
+That gives you the skills, the hooks, and one MCP entry:
+
+```
+plugin:justsend:contract: node .../plugins/justsend/mcp/contract.mjs   ✔ Connected
 ```
 
-### Harnesses with no plugin surface
-
-Hermes, OpenCode, and Gemini CLI take MCP servers only. Register both by hand;
-`$PLUGIN` is wherever you cloned or installed this repository.
+The contract server runs `node` from `PATH`. Override it at install time:
 
 ```bash
-# Hermes (0.20.1) — confirms the tool list before enabling
-hermes mcp add justsend --command /Applications/JustSendMac.app/Contents/MacOS/JustSendMCP
-hermes skills install clab-one/justsend-plugin/plugins/justsend/skills/justsend-work
+claude plugin install justsend@justsend-plugin --scope user \
+  --config node_path=/usr/local/bin/node
+```
 
-# Gemini CLI (0.45.0) — user scope, or the default project scope drops a .gemini/ directory
-gemini mcp add justsend /Applications/JustSendMac.app/Contents/MacOS/JustSendMCP -s user
+Hermes, OpenCode, Gemini CLI and pi have no plugin surface that fits this
+layout. Clone the repository and point at it:
+
+```bash
+git clone https://github.com/clab-one/justsend-plugin ~/justsend-plugin
+hermes skills install clab-one/justsend-plugin/plugins/justsend/skills/justsend-work
+```
+
+pi has no MCP client at all, so the record tools are out of reach there. Copy the
+skills in by hand and stop at that:
+
+```bash
+mkdir -p ~/.pi/agent/skills
+cp -R ~/justsend-plugin/plugins/justsend/skills/justsend-work ~/.pi/agent/skills/
+cp -R ~/justsend-plugin/plugins/justsend/skills/justsend-verify ~/.pi/agent/skills/
+```
+
+### Record server
+
+Remove any older entry first. Versions before 0.3.0 pointed at a helper
+executable inside the app bundle; that executable is gone, and a stale entry sits
+in the list looking installed rather than failing loudly.
+
+```bash
+claude mcp remove justsend -s user
+codex mcp remove justsend
+hermes mcp remove justsend
+gemini mcp remove justsend
+```
+
+```bash
+# Claude Code
+claude mcp add --transport http justsend http://127.0.0.1:PORT/mcp \
+  --header "Authorization: Bearer TOKEN" -s user
+
+# Codex — reads the token from the environment, not a flag
+export JUSTSEND_MCP_TOKEN=TOKEN
+codex mcp add justsend --url http://127.0.0.1:PORT/mcp \
+  --bearer-token-env-var JUSTSEND_MCP_TOKEN
+
+# Gemini CLI — pass -s user, or the default project scope drops a .gemini/ directory
+gemini mcp add justsend http://127.0.0.1:PORT/mcp -t http -s user \
+  -H "Authorization: Bearer TOKEN"
+
+# Hermes — asks for the header value; give it "Authorization: Bearer TOKEN"
+hermes mcp add justsend --url http://127.0.0.1:PORT/mcp --auth header
 ```
 
 Gemini also suppresses every MCP server — user scope included — in a folder it
 does not trust: `gemini mcp list` reports `Disabled` and never attempts the
 connection. Trust the folder from `/permissions`, or run with
 `GEMINI_CLI_TRUST_WORKSPACE=true`, and confirm the entry reads `Connected`.
+
+omp, in `~/.omp/agent/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "justsend": {
+      "type": "http",
+      "url": "http://127.0.0.1:PORT/mcp",
+      "headers": { "Authorization": "Bearer TOKEN" }
+    }
+  }
+}
+```
 
 OpenCode, in `~/.config/opencode/opencode.json`:
 
@@ -103,44 +154,40 @@ OpenCode, in `~/.config/opencode/opencode.json`:
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "justsend": {
-      "type": "local",
-      "command": ["/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP"],
+      "type": "remote",
+      "url": "http://127.0.0.1:PORT/mcp",
+      "headers": { "Authorization": "Bearer TOKEN" },
       "enabled": true
     },
     "justsend-contract": {
       "type": "local",
-      "command": ["node", "$PLUGIN/plugins/justsend/mcp/contract.mjs"],
+      "command": ["node", "~/justsend-plugin/plugins/justsend/mcp/contract.mjs"],
       "enabled": true
     }
   }
 }
 ```
 
-### pi (0.79.3)
-
-pi has **no MCP client** — `mcpServers` appears nowhere in its distribution — so
-no tool reaches it. The skills still install as drop-ins:
-
-```bash
-mkdir -p ~/.pi/agent/skills
-cp -R plugins/justsend/skills/justsend-work ~/.pi/agent/skills/
-cp -R plugins/justsend/skills/justsend-verify ~/.pi/agent/skills/
-```
+A `401` means the token in the config does not match the app's. Copy the setup
+prompt again rather than guessing at it.
 
 ## What each harness actually gets
 
-Measured on 2026-08-17 against the versions named.
+Measured on 2026-08-17 against the versions named. **Record tools are registered
+per machine** (endpoint + token, from the app's setup prompt), so no harness gets
+them from the plugin — that column is about whether the harness speaks HTTP at
+all, and all six do.
 
-| Harness | Record tools | Contract tools | Skills | Hooks |
+| Harness | Record tools (HTTP) | Contract tools | Skills | Hooks |
 |---|---|---|---|---|
-| Claude Code 2.1.220 | ✅ from the plugin | ✅ from the plugin | ✅ | ✅ 6 events |
-| Codex 0.146.0 | ✅ from the plugin | ✅ from the plugin | ✅ | ✅ after hook trust |
-| omp 17.1.3 | ✅ `mcp.json` | ✅ from the plugin | ✅ | ✅ `hooks/post/justsend.ts` |
-| Hermes 0.20.1 | ✅ manual | ✅ manual | ✅ skill registry | ❌ |
-| OpenCode 1.17.17 | ✅ manual | ✅ manual | ❌ | ❌ |
-| Gemini CLI 0.45.0 | ✅ manual | ✅ manual | ❌ | ❌ |
+| Claude Code 2.1.220 | ✅ `--transport http` + `--header` | ✅ from the plugin | ✅ | ✅ 6 events |
+| Codex 0.146.0 | ✅ `--url` + `--bearer-token-env-var` | ✅ from the plugin | ✅ | ✅ after hook trust |
+| omp 17.1.3 | ✅ `mcp.json` `type: http` | ✅ from the plugin | ✅ | ✅ `hooks/post/justsend.ts` |
+| Hermes 0.20.1 | ✅ `--url` + `--auth header` | ✅ manual | ✅ skill registry | ❌ |
+| OpenCode 1.17.17 | ✅ `type: remote` + `headers` | ✅ manual | ❌ | ❌ |
+| Gemini CLI 0.45.0 | ✅ `-t http` + `-H` | ✅ manual | ❌ | ❌ |
 | OpenClaw | documented only | documented only | ✅ bundle mapping | ❌ detected, not run |
-| pi 0.79.3 | ❌ no MCP support | ❌ no MCP support | ✅ drop-in | ❌ |
+| pi 0.79.3 | ❌ no MCP client | ❌ no MCP client | ✅ drop-in | ❌ |
 
 Whatever a harness does not run, append
 [`instructions-block.md`](plugins/justsend/skills/justsend-work/reference/instructions-block.md)

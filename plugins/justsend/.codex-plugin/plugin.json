@@ -1,6 +1,6 @@
 {
   "name": "justsend",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",
@@ -19,10 +19,6 @@
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "mcpServers": {
-    "records": {
-      "type": "stdio",
-      "command": "/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP"
-    },
     "contract": {
       "type": "stdio",
       "command": "node",
