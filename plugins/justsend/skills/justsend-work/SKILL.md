@@ -20,12 +20,17 @@ and one-off lookups are not tracked.
   (kebab-case, e.g. `settings-scroll-jitter`) and reuse it in every later call.
   `justsend_work_start` is find-or-create on that key, so calling it again is
   safe and never opens a second record.
-- **Pass `work_id` when the task has an issue number** (e.g. `IOSPROD-202`). It
-  goes to the front of the title, which is what makes the record collectable
-  later — saved folders are text queries, not tag references.
-- **Read before you write.** Run `justsend_search`, or `justsend_get_record`
-  with `work_id`, before starting. If a record for this task exists, continue it
-  instead of opening a parallel one.
+- **Always bind the record to its repository.** Pass `project` with the
+  repository name (the working-directory basename, e.g. `mac-prod`) on
+  `justsend_work_start`. It becomes a tag, and that tag is the only way to ask
+  "what work exists for this repo" later — `justsend_list_records(tag: "mac-prod")`.
+  A record created without it is findable by full-text search alone. Pass
+  `work_id` instead when the task carries an issue number (e.g. `IOSPROD-202`):
+  the number goes to the front of the title and the project tag is derived from
+  it, so `work_id` and `project` are alternatives, not both.
+- **Read before you write.** Run `justsend_list_records` with this repo's tag, or
+  `justsend_search`, or `justsend_get_record` with `work_id`, before starting. If
+  a record for this task exists, continue it instead of opening a parallel one.
 - **Resume from the record, not from memory.** After a break or a context
   compaction, `justsend_context` returns the compact current state.
 - **Notes carry what a diff cannot.** Use `justsend_work_note` for progress,
@@ -53,13 +58,13 @@ and one-off lookups are not tracked.
 
 | You need to | Call |
 |---|---|
-| Open or reopen the record for this task | `justsend_work_start` (`task_key`, `task`, plus `work_id` when there is an issue number) |
+| Open or reopen the record for this task | `justsend_work_start` (`task_key`, `task`, plus `project` for the repo — or `work_id` when there is an issue number) |
 | Add progress, a decision, a dead end, or a blocker | `justsend_work_note` (`task_key`, `note`, `blocker`) |
 | Finish the task | `justsend_work_complete` (`task_key`, `summary`) |
 | Undo a record you created wrongly | `justsend_work_retract` (`task_key`, `reason`) |
 | Append to a record your parent owns | `justsend_progress_note` (`task_key`, `item_id`, `note`) |
 | Pick up where you left off | `justsend_context` (`task_key`, `limit`) |
-| Find out whether this task already has a record | `justsend_search`, `justsend_get_record` (`work_id` or `id`) |
+| Find out whether this task already has a record | `justsend_list_records` (`tag`), `justsend_search`, `justsend_get_record` (`work_id` or `id`) |
 | Survey what exists | `justsend_list_records`, `justsend_count_records`, `justsend_list_notes`, `justsend_list_tags`, `justsend_list_states`, `justsend_list_folders` |
 | Check which account and database you are reading | `justsend_me` |
 
@@ -77,6 +82,23 @@ consequences worth stating to the user rather than debugging:
   intent carries an idempotency key.
 - `Settings → Agent access → Delivery status` is where a queued or failed intent
   is visible.
+
+## Status is a tag, not a state machine
+
+The `status` column belongs to the user, who sets it in the app; every
+agent-created record reads `pending`. Asking
+`justsend_list_records(status: "done")` therefore returns nothing, however many
+records you completed. What your calls write is tags: `status:in-progress` on
+start, `status:done` on completion — and they accumulate, so a finished record
+still carries `status:in-progress`.
+
+Two consequences worth stating instead of debugging:
+
+- To find what you finished, filter `tag: "status:done"`, never `status: "done"`.
+- Do not treat `tag: "status:in-progress"` as "still open" — it includes
+  everything you ever started. The authoritative open list is the one the plugin
+  hook keeps per working directory, which is what the session-start and
+  prompt-submit reminders read.
 
 ## What this skill does not do
 
