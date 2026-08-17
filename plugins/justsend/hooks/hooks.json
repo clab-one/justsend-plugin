@@ -56,6 +56,15 @@
         ]
       },
       {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/delegation-guard.sh\""
+          }
+        ]
+      },
+      {
         "matcher": "justsend_work_complete",
         "hooks": [
           {

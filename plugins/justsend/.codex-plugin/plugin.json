@@ -1,6 +1,6 @@
 {
   "name": "justsend",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",
@@ -22,7 +22,9 @@
     "contract": {
       "type": "stdio",
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/contract.mjs"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp/contract.mjs"
+      ]
     }
   },
   "interface": {
