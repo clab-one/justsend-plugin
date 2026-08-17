@@ -38,7 +38,7 @@ allows 'git status'
 allows 'git commit -m "drop the table copy"'
 
 # --- open-record state ------------------------------------------------------
-export CLAUDE_PLUGIN_DATA=$(mktemp -d)
+export JUSTSEND_STATE_DIR=$(mktemp -d)
 export JUSTSEND_HOOK_CWD=/tmp/js-test-project
 . ./lib.sh
 state=$(js_open_file)

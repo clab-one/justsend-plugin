@@ -2,10 +2,12 @@
 # no jq, no python. A hook that needs a dependency the user does not have is a
 # hook that fails on the machine you cannot inspect.
 
-# State lives outside the plugin so a plugin update never wipes it, and is keyed
-# by working directory so two repos do not share one open-record list.
+# State lives outside the plugin so a plugin update never wipes it, and outside
+# any one harness's data directory so Claude Code, Codex, and omp see the SAME
+# open-record list: the user is one person working one task, whichever client
+# they happen to be in.
 js_state_dir() {
-  base="${CLAUDE_PLUGIN_DATA:-${PLUGIN_DATA:-${XDG_STATE_HOME:-$HOME/.local/state}/justsend-plugin}}"
+  base="${JUSTSEND_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/justsend-plugin}"
   key=$(printf '%s' "${JUSTSEND_HOOK_CWD:-$PWD}" | tr -c 'A-Za-z0-9._-' '_')
   printf '%s/records/%s' "$base" "$key"
 }
