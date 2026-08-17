@@ -177,6 +177,10 @@ floor; skills and hooks are the ceiling.
 | Criteria and evidence | `<cwd>/.justsend/contract/<task_key>.json` |
 | Open-record list | `${XDG_STATE_HOME:-~/.local/state}/justsend-plugin`, shared across harnesses on purpose — one person, one task, whichever client they are in. Override with `JUSTSEND_STATE_DIR` |
 
+Whether `.justsend/` is committed is your call: committing it puts the evidence
+trail in the diff a reviewer reads, and ignoring it keeps working state out of
+history. Nothing in the plugin depends on the choice.
+
 Two honest ways past a gate you cannot satisfy: `justsend_work_note(blocker:
 true)` when a human has to act, or `justsend_contract_set(enforce: false)` when
 the work is tracked rather than gated. Both are visible in the record.
