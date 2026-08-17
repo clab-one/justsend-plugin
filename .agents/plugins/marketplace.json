@@ -1,0 +1,20 @@
+{
+  "name": "justsend-plugin",
+  "interface": {
+    "displayName": "JustSend Work Memory"
+  },
+  "plugins": [
+    {
+      "name": "justsend",
+      "source": {
+        "source": "local",
+        "path": "./plugins/justsend"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

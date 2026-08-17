@@ -1,0 +1,32 @@
+{
+  "name": "justsend",
+  "version": "0.1.0",
+  "description": "Work-record discipline for the JustSend MCP server, plus advisory hooks that keep the open record visible.",
+  "author": {
+    "name": "clab-one",
+    "url": "https://github.com/clab-one"
+  },
+  "homepage": "https://github.com/clab-one/justsend-plugin",
+  "repository": "https://github.com/clab-one/justsend-plugin",
+  "license": "MIT",
+  "keywords": [
+    "work-log",
+    "memory",
+    "justsend",
+    "verification"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "JustSend Work Memory",
+    "shortDescription": "Local work records for coding agents",
+    "longDescription": "Tracks substantive work in JustSend through the local justsend MCP server: one record per task_key, progress notes that carry decisions and dead ends, completion that carries evidence.",
+    "developerName": "clab-one",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/clab-one/justsend-plugin"
+  }
+}

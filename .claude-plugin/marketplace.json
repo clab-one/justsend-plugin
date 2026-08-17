@@ -1,0 +1,28 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "justsend-plugin",
+  "owner": {
+    "name": "clab-one",
+    "url": "https://github.com/clab-one"
+  },
+  "metadata": {
+    "description": "JustSend work memory for coding agents: local MCP work records plus the discipline that keeps them readable.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "justsend",
+      "description": "Work-record discipline for the JustSend MCP server: one record per task_key, notes that carry decisions and dead ends, completion that carries evidence.",
+      "source": "./plugins/justsend",
+      "category": "productivity",
+      "keywords": [
+        "work-log",
+        "memory",
+        "justsend",
+        "verification",
+        "handoff"
+      ],
+      "homepage": "https://github.com/clab-one/justsend-plugin"
+    }
+  ]
+}

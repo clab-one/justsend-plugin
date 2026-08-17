@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "justsend",
+  "displayName": "JustSend Work Memory",
+  "version": "0.1.0",
+  "description": "Work-record discipline for the JustSend MCP server, plus advisory hooks that keep the open record visible.",
+  "author": {
+    "name": "clab-one",
+    "url": "https://github.com/clab-one"
+  },
+  "homepage": "https://github.com/clab-one/justsend-plugin",
+  "repository": "https://github.com/clab-one/justsend-plugin",
+  "license": "MIT",
+  "keywords": [
+    "work-log",
+    "memory",
+    "justsend",
+    "verification"
+  ]
+}
