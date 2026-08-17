@@ -1,7 +1,7 @@
 {
   "name": "justsend",
-  "version": "0.1.0",
-  "description": "Work-record discipline for the JustSend MCP server, plus advisory hooks that keep the open record visible.",
+  "version": "0.2.0",
+  "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",
     "url": "https://github.com/clab-one"
@@ -13,14 +13,26 @@
     "work-log",
     "memory",
     "justsend",
-    "verification"
+    "verification",
+    "evidence"
   ],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
+  "mcpServers": {
+    "records": {
+      "type": "stdio",
+      "command": "/Applications/JustSendMac.app/Contents/MacOS/JustSendMCP"
+    },
+    "contract": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/contract.mjs"]
+    }
+  },
   "interface": {
     "displayName": "JustSend Work Memory",
-    "shortDescription": "Local work records for coding agents",
-    "longDescription": "Tracks substantive work in JustSend through the local justsend MCP server: one record per task_key, progress notes that carry decisions and dead ends, completion that carries evidence.",
+    "shortDescription": "Work records and a verification gate for coding agents",
+    "longDescription": "Tracks substantive work in JustSend: one record per task_key, progress notes that carry decisions and dead ends, and a verification contract whose criteria must each carry a failing-then-passing artifact before the task can be completed.",
     "developerName": "clab-one",
     "category": "Productivity",
     "capabilities": [

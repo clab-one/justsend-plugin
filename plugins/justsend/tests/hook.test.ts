@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import justsend, { guardBash, openRecords, workVerb } from "./justsend";
+import justsend, { guardBash, openRecords, workVerb } from "../hooks/post/justsend";
 
 const CWD = "/tmp/js-omp-hook-test";
 let state: string;

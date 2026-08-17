@@ -36,8 +36,8 @@ export function workVerb(toolName: string): string | undefined {
   return WORK_TOOLS.find((verb) => toolName.endsWith(verb));
 }
 
-function run(script: string, payload: string | undefined, cwd: string) {
-  return spawnSync("bash", [join(SCRIPTS, script)], {
+function run(script: string, args: string[], payload: string | undefined, cwd: string) {
+  return spawnSync("bash", [join(SCRIPTS, script), ...args], {
     input: payload,
     encoding: "utf8",
     env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
@@ -50,16 +50,33 @@ function run(script: string, payload: string | undefined, cwd: string) {
  *  a guard that fails closed on its own bug would be worse than no guard. */
 export function guardBash(command: string, cwd: string): HookResult {
   const payload = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
-  const result = run("destructive-guard.sh", payload, cwd);
+  const result = run("destructive-guard.sh", [], payload, cwd);
   if (result.status !== 2) return undefined;
   const reason = (result.stderr ?? "").trim();
   return { block: true, reason: reason || "Destructive command blocked by the JustSend guard." };
 }
 
 export function openRecords(cwd: string): string[] {
-  const result = run("open-records.sh", undefined, cwd);
+  const result = run("open-records.sh", [], undefined, cwd);
   if (result.status !== 0) return [];
   return (result.stdout ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+/** The completion gate, same state and same wording the Claude/Codex PreToolUse
+ *  hook uses: exit 2 means a criterion is still unproven. */
+export function guardComplete(taskKey: string, cwd: string): HookResult {
+  const result = run("contract.sh", ["gate", taskKey], undefined, cwd);
+  if (result.status !== 2) return undefined;
+  const reason = (result.stderr ?? "").trim();
+  return { block: true, reason: reason || "The JustSend contract still has unproven criteria." };
+}
+
+/** Active contract as text, for the status line and for compaction. */
+function contract(cwd: string, mode: "summary" | "line"): string | undefined {
+  const result = run("contract.sh", [mode], undefined, cwd);
+  if (result.status !== 0) return undefined;
+  const text = (result.stdout ?? "").trim();
+  return text || undefined;
 }
 
 function reminder(cwd: string): string | undefined {
@@ -74,6 +91,10 @@ function reminder(cwd: string): string | undefined {
 
 export default function justsend(pi: HookAPILike): void {
   pi.on("tool_call", async (event, ctx) => {
+    const name = String(event.toolName ?? "");
+    if (workVerb(name) === "work_complete") {
+      return guardComplete(String(event.input?.task_key ?? ""), ctx.cwd);
+    }
     if (event.toolName !== "bash") return;
     const command = String(event.input?.command ?? "");
     if (!command) return;
@@ -85,9 +106,13 @@ export default function justsend(pi: HookAPILike): void {
     if (!verb || event.isError) return;
     run(
       "record-state.sh",
+      [],
       JSON.stringify({ tool_name: `justsend_${verb}`, tool_input: event.input ?? {} }),
       ctx.cwd,
     );
+    if (verb === "work_complete" || verb === "work_retract") {
+      run("contract.sh", ["close", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
+    }
     return undefined;
   });
 
@@ -96,15 +121,18 @@ export default function justsend(pi: HookAPILike): void {
   const status = (ctx: { hasUI: boolean; cwd: string; ui: { setStatus(k: string, t: string): void } }) => {
     if (!ctx.hasUI) return;
     const open = openRecords(ctx.cwd);
-    ctx.ui.setStatus("justsend", open.length > 0 ? `justsend ${open.join(",")}` : "justsend");
+    const line = contract(ctx.cwd, "line");
+    const parts = [open.length > 0 ? open.join(",") : undefined, line].filter(Boolean);
+    ctx.ui.setStatus("justsend", parts.length > 0 ? `justsend ${parts.join(" ")}` : "justsend");
   };
   pi.on("session_start", async (_event, ctx) => { status(ctx); });
   pi.on("turn_end", async (_event, ctx) => { status(ctx); });
 
   // Compaction drops whatever the summariser did not think mattered. The open
-  // record has to survive it, so it is re-injected deterministically.
+  // record and the contract have to survive it, so both are re-injected
+  // deterministically rather than left to the summary.
   pi.on("session.compacting", async (_event, ctx) => {
-    const text = reminder(ctx.cwd);
-    return text ? ({ context: [text] } as unknown as HookResult) : undefined;
+    const parts = [reminder(ctx.cwd), contract(ctx.cwd, "summary")].filter(Boolean) as string[];
+    return parts.length > 0 ? ({ context: parts } as unknown as HookResult) : undefined;
   });
 }

@@ -6,13 +6,13 @@
     "url": "https://github.com/clab-one"
   },
   "metadata": {
-    "description": "JustSend work memory for coding agents: local MCP work records plus the discipline that keeps them readable.",
-    "version": "0.1.0"
+    "description": "JustSend work memory and verification for coding agents: local MCP work records, a success-criteria contract, and a completion gate that wants evidence.",
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "justsend",
-      "description": "Work-record discipline for the JustSend MCP server: one record per task_key, notes that carry decisions and dead ends, completion that carries evidence.",
+      "description": "Work records plus a verification contract: one record per task_key, notes that carry decisions and dead ends, and criteria that each need a failing-then-passing artifact before the task can be completed.",
       "source": "./plugins/justsend",
       "category": "productivity",
       "keywords": [
@@ -20,6 +20,7 @@
         "memory",
         "justsend",
         "verification",
+        "evidence",
         "handoff"
       ],
       "homepage": "https://github.com/clab-one/justsend-plugin"

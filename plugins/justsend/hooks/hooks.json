@@ -7,6 +7,10 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh\" 2>/dev/null || true",
             "statusMessage": "Loading JustSend work memory"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" summary 2>/dev/null || true"
           }
         ]
       }
@@ -30,6 +34,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/record-state.sh\" 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "justsend_work_complete|justsend_work_retract",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" close 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -39,6 +52,35 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/destructive-guard.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "justsend_work_complete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" gate"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" summary 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" continuation"
           }
         ]
       }
