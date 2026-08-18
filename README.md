@@ -31,11 +31,17 @@ A plugin cannot carry them, so you register that one with values the app hands
 you.
 
 Get them from the app: **Settings → Agent access → Copy setup prompt**. It writes
-a prompt to the clipboard with your endpoint and token already substituted, and
-every command below in it. Paste that into your agent and it installs itself.
+a short prompt to the clipboard with your endpoint and token already substituted,
+and it points the agent at **this section** for the steps. Paste it in and the
+agent installs itself.
 
-The rest of this section is what that prompt does, if you would rather do it by
-hand. Substitute your own values for `PORT` and `TOKEN`.
+That indirection is deliberate: install commands change when a harness changes,
+and this file can be corrected the same day, while a prompt baked into the app
+would wait for the next release. **This section is the source of truth.** Keeping
+it accurate is what keeps that prompt working.
+
+The steps below are what the agent follows, and what you would do by hand.
+Substitute your own values for `PORT` and `TOKEN`.
 
 ```
 URL    http://127.0.0.1:PORT/mcp
