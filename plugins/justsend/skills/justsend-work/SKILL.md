@@ -28,9 +28,11 @@ and one-off lookups are not tracked.
   `work_id` instead when the task carries an issue number (e.g. `IOSPROD-202`):
   the number goes to the front of the title and the project tag is derived from
   it, so `work_id` and `project` are alternatives, not both.
-- **Read before you write.** Run `justsend_list_records` with this repo's tag, or
-  `justsend_search`, or `justsend_get_record` with `work_id`, before starting. If
-  a record for this task exists, continue it instead of opening a parallel one.
+- **Read before you write.** Run `justsend_list_records` with this repo's tag
+  and `including_agent: true` (see "Reads exclude your own records by
+  default" below), or `justsend_search` with `including_agent: true`, or
+  `justsend_get_record` with `work_id` (unaffected by that default). If a
+  record for this task exists, continue it instead of opening a parallel one.
 - **Resume from the record, not from memory.** After a break or a context
   compaction, `justsend_context` returns the compact current state.
 - **Notes carry what a diff cannot.** Use `justsend_work_note` for progress,
@@ -64,9 +66,30 @@ and one-off lookups are not tracked.
 | Undo a record you created wrongly | `justsend_work_retract` (`task_key`, `reason`) |
 | Append to a record your parent owns | `justsend_progress_note` (`task_key`, `item_id`, `note`) |
 | Pick up where you left off | `justsend_context` (`task_key`, `limit`) |
-| Find out whether this task already has a record | `justsend_list_records` (`tag`), `justsend_search`, `justsend_get_record` (`work_id` or `id`) |
+| Find out whether this task already has a record | `justsend_list_records` (`tag`, `including_agent: true`), `justsend_search` (`including_agent: true`), `justsend_get_record` (`work_id` or `id`) |
 | Survey what exists | `justsend_list_records`, `justsend_count_records`, `justsend_list_notes`, `justsend_list_tags`, `justsend_list_states`, `justsend_list_folders` |
 | Check which account and database you are reading | `justsend_me` |
+
+## Reads exclude your own records by default
+
+`justsend_list_records` and `justsend_search` silently drop every record
+whose `category` is `agent` unless you pass `including_agent: true` — the
+same rule the app's own list uses. A plain `justsend_list_records(tag:
+"IOSPROD")` call returns `[]` even when hundreds of agent-created records
+carry that tag, and an empty list reads as "no prior work" when it is
+actually "wrong flag."
+
+- Checking for prior work on a project: `justsend_list_records(tag:
+  <PROJECT>, including_agent: true)`, or `category: "agent"` to see only the
+  agent's own records.
+- `justsend_get_record` looked up by `work_id` is NOT affected — it has no
+  agent filter, so `justsend_get_record(work_id: "IOSPROD-202")` finds your
+  own numbered record without the flag.
+- To pick the next number for a numbered project (`work_id` continuing a
+  sequence like `IOSPROD-213`), list the project's tag with
+  `including_agent: true` and take the highest existing suffix — there is no
+  separate "next number" tool, and skipping `including_agent` makes every
+  project look brand new.
 
 Ask `justsend_me` first when a list comes back empty: an empty library and
 "reading a different account" look identical from the outside.
