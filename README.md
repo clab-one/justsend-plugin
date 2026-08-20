@@ -184,8 +184,10 @@ https://justsend.cloud/install.
 ## What each harness actually gets
 
 Measurements were taken on 2026-08-17 against the named versions. The omp row
-was re-run against the rebuilt app on 2026-08-20; the other five were not
-re-installed on that machine.
+was re-run against the rebuilt app on 2026-08-20, and again on 2026-08-21 with
+plugin 0.7.0 on omp 17.4.0, where `justsend:contract` was observed connecting
+through `mcp/run.sh` and answering a `justsend_contract_status` call. The other
+five were not re-installed on that machine.
 **Record tools are registered per machine** using `/usr/local/bin/justsend-mcp`;
 the plugin does not provide those tools. The table records whether each harness
 can launch a local stdio server.
@@ -194,7 +196,7 @@ can launch a local stdio server.
 |---|---|---|---|---|
 | Claude Code 2.1.220 | ✅ `claude mcp add justsend -s user -- /usr/local/bin/justsend-mcp` | ✅ from the plugin | ✅ | ✅ 6 events |
 | Codex 0.146.0 | ✅ `codex mcp add justsend -- /usr/local/bin/justsend-mcp` | ✅ from the plugin | ✅ | ✅ after hook trust |
-| omp 17.1.3 | ✅ `mcp.json` `command: /usr/local/bin/justsend-mcp` | ✅ from the plugin | ✅ | ✅ `hooks/post/justsend.ts` |
+| omp 17.4.0 | ✅ `mcp.json` `command: /usr/local/bin/justsend-mcp` | ✅ from the plugin | ✅ | ✅ `hooks/post/justsend.ts` |
 | Hermes 0.20.1 | ✅ `hermes mcp add justsend --command /usr/local/bin/justsend-mcp` | ✅ manual | ✅ skill registry | ❌ |
 | OpenCode 1.17.17 | ✅ `type: local`, `command: /usr/local/bin/justsend-mcp` | ✅ manual | ❌ | ❌ |
 | Gemini CLI 0.45.0 | ✅ `gemini mcp add justsend /usr/local/bin/justsend-mcp -s user` | ✅ manual | ❌ | ❌ |
