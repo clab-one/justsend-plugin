@@ -79,6 +79,12 @@ loud:
 - `justsend_contract_set(enforce: false)` when the work is tracked rather than
   gated. State that you did it and why.
 
+`justsend_work_status(task_key, "backlog")` is not a third way out. It files the
+record for later without writing a note, which is the right call when the user
+defers the work — but it closes nothing, proves nothing, and leaves the gate
+exactly where it was. Reaching for it instead of one of the two exits above turns
+an unfinished task into a silently parked one.
+
 Never weaken a criterion after the fact to make a gate pass, and never claim an
 artifact you did not capture.
 

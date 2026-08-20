@@ -37,15 +37,23 @@ behavior applies to the record server:
 
 - **Reads do not need the app.** `justsend_me`, search, and every list tool read
   the app's own store directly, so they answer with JustSend closed.
-- **Writes wait for the app.** An append enqueues an intent that the app applies
-  and syncs; the tool answers `queued` until it does. Report a pending write
-  rather than calling it written.
+- **Writes wait for the app, identity does not.** An append enqueues an intent
+  that the app applies and syncs, and the tool answers `queued` until it does —
+  report a pending write rather than calling it written. But
+  `justsend_work_start` issues the record's `item_id` immediately, so notes and
+  completion can follow at once instead of waiting for the queue to drain.
+- **Status and delivery are queryable.** `justsend_work_status` moves a record
+  between `backlog`, `todo`, `in-progress`, `done`, and `canceled` without
+  writing a note, and `justsend_health` reports which account and database are
+  in use, the queue counts, and when the app last applied anything.
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.6.0 distributes the helper outside the app bundle at
-> `/usr/local/bin/justsend-mcp`; 0.5.0 replaced loopback HTTP; 0.3.0–0.4.1
-> registered `127.0.0.1` with a bearer token.
+> **Version history:** 0.7.0 launches the contract server through
+> `mcp/run.sh`, so no host has to substitute a runtime path; 0.6.0 distributes
+> the helper outside the app bundle at `/usr/local/bin/justsend-mcp`; 0.5.0
+> replaced loopback HTTP; 0.3.0–0.4.1 registered `127.0.0.1` with a bearer
+> token.
 
 
 ### Plugin
@@ -68,15 +76,24 @@ omp plugin install justsend@justsend-plugin
 That gives you the skills, the hooks, and one MCP entry:
 
 ```
-plugin:justsend:contract: node .../plugins/justsend/mcp/contract.mjs   ✔ Connected
+plugin:justsend:contract: .../plugins/justsend/mcp/run.sh   ✔ Connected
 ```
 
-The contract server runs `node` from `PATH`. Override it at install time:
+Installation takes no flags. The manifest launches `mcp/run.sh`, which finds a
+runtime itself: `$JUSTSEND_CONTRACT_RUNTIME` when set, otherwise `bun` or `node`
+on `PATH`, otherwise the usual install locations. Set
+`JUSTSEND_CONTRACT_RUNTIME` only when the runtime lives somewhere unusual:
 
 ```bash
-claude plugin install justsend@justsend-plugin --scope user \
-  --config node_path=/usr/local/bin/node
+JUSTSEND_CONTRACT_RUNTIME=/opt/custom/bin/node
 ```
+
+The indirection is not decoration. A plugin manifest can only carry variables its
+host substitutes, and hosts substitute `${CLAUDE_PLUGIN_ROOT}` — omp additionally
+`${OMP_PLUGIN_ROOT}` — and nothing else, so a manifest cannot name a runtime that
+varies per machine. Up to 0.6.0 this one tried: omp 17.4.0 spawned the literal
+string `${user_config.node_path}` and reported
+`Executable not found in $PATH`.
 
 Hermes, OpenCode, Gemini CLI and pi have no plugin surface that fits this
 layout. Clone the repository and point at it:
@@ -151,7 +168,7 @@ OpenCode, in `~/.config/opencode/opencode.json`:
     },
     "justsend-contract": {
       "type": "local",
-      "command": ["node", "~/justsend-plugin/plugins/justsend/mcp/contract.mjs"],
+      "command": ["~/justsend-plugin/plugins/justsend/mcp/run.sh"],
       "enabled": true
     }
   }

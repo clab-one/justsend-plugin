@@ -63,12 +63,14 @@ and one-off lookups are not tracked.
 | Open or reopen the record for this task | `justsend_work_start` (`task_key`, `task`, plus `project` for the repo — or `work_id` when there is an issue number) |
 | Add progress, a decision, a dead end, or a blocker | `justsend_work_note` (`task_key`, `note`, `blocker`) |
 | Finish the task | `justsend_work_complete` (`task_key`, `summary`) |
+| File work you are not starting yet, or pick it up later | `justsend_work_status` (`task_key`, `status`) — `backlog`, `todo`, `in-progress`, `done`, `canceled`, and it writes no note |
 | Undo a record you created wrongly | `justsend_work_retract` (`task_key`, `reason`) |
 | Append to a record your parent owns | `justsend_progress_note` (`task_key`, `item_id`, `note`) |
 | Pick up where you left off | `justsend_context` (`task_key`, `limit`) |
 | Find out whether this task already has a record | `justsend_list_records` (`tag`, `including_agent: true`), `justsend_search` (`including_agent: true`), `justsend_get_record` (`work_id` or `id`) |
 | Survey what exists | `justsend_list_records`, `justsend_count_records`, `justsend_list_notes`, `justsend_list_tags`, `justsend_list_states`, `justsend_list_folders` |
 | Check which account and database you are reading | `justsend_me` |
+| Find out why a write has not appeared | `justsend_health` — the account, the two database paths, `queue` counts (`pending`, `retrying`, `blocked`, `failed`) and `last_applied_at` |
 
 ## Reads exclude your own records by default
 
@@ -92,36 +94,70 @@ actually "wrong flag."
   project look brand new.
 
 Ask `justsend_me` first when a list comes back empty: an empty library and
-"reading a different account" look identical from the outside.
+"reading a different account" look identical from the outside. When it is a
+record *you wrote* that is missing, ask `justsend_health` instead — it answers
+the account question too, and adds the one thing `justsend_me` cannot: whether
+the app is applying at all. A non-zero `queue.pending` with a stale
+`last_applied_at` means the write is waiting, not lost.
 
-## Writes are queued, not immediate
+## Writes are queued, but identity is not
 
 The MCP server reads the library directly but never writes to it. Every write is
-queued as an intent and applied by the JustSend app, which then syncs it. Two
-consequences worth stating to the user rather than debugging:
+queued as an intent and applied by the JustSend app, which then syncs it.
+Nothing is lost while the app is closed — every intent carries an idempotency
+key, and the queue drains at the next launch.
 
-- A record you just created appears once the app applies the intent. If JustSend
-  is not running, the queue waits for the next launch. Nothing is lost — every
-  intent carries an idempotency key.
-- `Settings → Agent access → Delivery status` is where a queued or failed intent
-  is visible.
+What you do **not** have to wait for is the record itself.
+`justsend_work_start` issues `item_id` and returns it immediately, so notes and
+the completion can be written straight after it, with the app still down. Do not
+sleep, poll, or re-call `justsend_work_start` to "check whether it landed": the
+id you were handed is the id the app will materialise.
 
-## Status is a tag, not a state machine
+The queue state that comes back names who has to act:
 
-The `status` column belongs to the user, who sets it in the app; every
-agent-created record reads `pending`. Asking
-`justsend_list_records(status: "done")` therefore returns nothing, however many
-records you completed. What your calls write is tags: `status:in-progress` on
-start, `status:done` on completion — and they accumulate, so a finished record
-still carries `status:in-progress`.
+- `pending` — waiting for the app. Normal.
+- `retrying` — a transient failure, retried with backoff. The ordinary case is
+  the app running signed out, so it cannot yet tell which account the record
+  belongs to; signing in drains it.
+- `blocked` — needs the user. Say so instead of retrying.
+- `failed` — permanent. The note body is still in the intent, so report it
+  rather than rewriting the work from memory.
 
-Two consequences worth stating instead of debugging:
+`Settings → Agent access → Delivery status` shows the same thing in the app, and
+`justsend_health` returns the counts plus `last_applied_at`.
 
-- To find what you finished, filter `tag: "status:done"`, never `status: "done"`.
-- Do not treat `tag: "status:in-progress"` as "still open" — it includes
-  everything you ever started. The authoritative open list is the one the plugin
-  hook keeps per working directory, which is what the session-start and
-  prompt-submit reminders read.
+## Two status axes, and only one of them is yours
+
+A record carries two unrelated notions of status, and asking the wrong one
+returns an empty list that reads like missing work.
+
+- `status` is the user's own memo status column, set in the app. Every
+  agent-created record reads `pending` there, so
+  `justsend_list_records(status: "done")` returns nothing however many records
+  you completed. Leave this axis alone.
+- `work_status` is the axis your calls write, as a `status:` tag —
+  `backlog`, `todo`, `in-progress`, `done`, `canceled`. Filter it with
+  `justsend_list_records(work_status: "done")`, and count it with
+  `justsend_list_states`. It tolerates the spelling drift the phone accepts
+  (`status:completed`, `status:in_progress`), so you do not have to guess the
+  exact tag text.
+
+Each stamp **replaces** the previous one rather than piling up: `work_start`
+writes `status:in-progress`, `work_complete` writes `status:done`, and the old
+tag is removed as the new one lands. So `work_status: "in-progress"` is a
+truthful open list, not a list of everything you ever started, and
+`justsend_work_status` is how you move a record between states without writing a
+note — file it to `backlog` when you are deferring, back to `in-progress` when
+you resume.
+
+Closing still belongs to `justsend_work_complete` or `justsend_work_cancel`,
+not to `justsend_work_status`: those two write the closing note that makes the
+record readable months later. A record whose status says `done` with no note
+saying how is a record nobody can use.
+
+For "what is open in this directory", the plugin hook's own per-directory list
+is still the authority — that is what the session-start and prompt-submit
+reminders read.
 
 ## What this skill does not do
 

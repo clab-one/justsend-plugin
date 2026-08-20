@@ -66,6 +66,13 @@ A compaction hook re-injects the contract summary, so after any context loss cal
 `justsend_contract_status` and resume from the unproven list instead of guessing
 what you had already proven.
 
+If a note or record you are sure you wrote is not there, call `justsend_health`
+before concluding anything. "My writes are queued and the app has not applied
+them" and "I am reading a different account" produce the identical symptom — a
+missing record — and only one of them means you have work to redo. It answers
+both: `account_id`, `queue` counts (`pending`, `retrying`, `blocked`, `failed`),
+and `last_applied_at`.
+
 ## 2. Triage the tier once
 
 Judge by what this session will itself edit or execute. Delegated work is payload
@@ -126,3 +133,5 @@ nowhere else.
 | Finish (gated) | `justsend_work_complete` |
 | Append as a delegated agent | `justsend_progress_note` |
 | Recover state after compaction | `justsend_contract_status`, `justsend_context` |
+| Tell a queued write apart from a wrong account | `justsend_health` |
+| Park unproven work, or pick it up again | `justsend_work_status` (`backlog` / `in-progress`) — moves the record without a note, and is **not** a close: `justsend_work_complete` stays the gated exit |

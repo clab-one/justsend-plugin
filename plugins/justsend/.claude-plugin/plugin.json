@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "justsend",
   "displayName": "JustSend Work Memory",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",
@@ -18,22 +18,10 @@
     "verification",
     "evidence"
   ],
-  "userConfig": {
-    "node_path": {
-      "type": "file",
-      "title": "Node executable",
-      "description": "Runs the bundled contract server. Leave as node to use the one on PATH.",
-      "default": "node",
-      "required": false
-    }
-  },
   "mcpServers": {
     "contract": {
       "type": "stdio",
-      "command": "${user_config.node_path}",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/contract.mjs"
-      ]
+      "command": "${CLAUDE_PLUGIN_ROOT}/mcp/run.sh"
     }
   }
 }

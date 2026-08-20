@@ -7,7 +7,9 @@ and one-off lookups are not tracked.
 - **One record per task, keyed by `task_key`.** Choose it once at the start
   (kebab-case, e.g. `settings-scroll-jitter`) and reuse it in every later call.
   `justsend_work_start` is find-or-create on that key, so calling it again is
-  safe and never opens a second record.
+  safe and never opens a second record. It returns `item_id` immediately, so
+  write notes straight after it — the app applies the queue later, and waiting or
+  polling for it to land buys nothing.
 - **Always bind the record to its repository.** Pass `project` with the repository
   name (the working-directory basename) on `justsend_work_start`. It becomes a
   tag, and that tag is the only way to ask "what work exists for this repo" later.
@@ -38,9 +40,12 @@ and one-off lookups are not tracked.
   toggles in JustSend → Settings → Agent access, and every call is audited
   server-side. If a tool answers "access is disabled", name the toggle the user
   has to turn on instead of retrying.
-- **`status` is a tag, not a state machine.** Every agent-created record reads
-  `pending`; your calls write `status:in-progress` and `status:done` as tags, and
-  they accumulate. Filter `tag: "status:done"`, never `status: "done"`.
+- **Two status axes.** `status` is the user's memo column and reads `pending` on
+  every agent-created record — leave it alone. Your calls write the `work_status`
+  axis (`backlog`, `todo`, `in-progress`, `done`, `canceled`), each stamp
+  replacing the last, so filter `justsend_list_records(work_status: "done")`.
+  `justsend_work_status` moves a record between those states without a note;
+  closing still goes through `justsend_work_complete`.
 - **When the work has to be provably done, register a contract.**
   `justsend_contract_set` takes the success criteria, `justsend_evidence` records
   the failing-then-passing artifact for each, and `justsend_work_complete` is
