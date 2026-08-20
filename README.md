@@ -82,11 +82,19 @@ plugin:justsend:contract: .../plugins/justsend/mcp/run.sh   ✔ Connected
 Installation takes no flags. The manifest launches `mcp/run.sh`, which finds a
 runtime itself: `$JUSTSEND_CONTRACT_RUNTIME` when set, otherwise `bun` or `node`
 on `PATH`, otherwise the usual install locations. Set
-`JUSTSEND_CONTRACT_RUNTIME` only when the runtime lives somewhere unusual:
+`JUSTSEND_CONTRACT_RUNTIME` only when the runtime lives somewhere unusual — and
+set it in the environment the harness is *launched from*, because the harness
+passes its own environment to the server it spawns:
 
 ```bash
-JUSTSEND_CONTRACT_RUNTIME=/opt/custom/bin/node
+echo 'export JUSTSEND_CONTRACT_RUNTIME=/opt/custom/bin/node' >> ~/.zshrc
+exec zsh          # then restart the harness, which reads the variable at spawn
 ```
+
+A harness already running will not pick it up; it spawned the server with the
+environment it had. Verified on omp 17.4.0 on 2026-08-21 by pointing the
+variable at a wrapper and confirming the wrapper was the process that ran
+`mcp/contract.mjs`.
 
 The indirection is not decoration. A plugin manifest can only carry variables its
 host substitutes, and hosts substitute `${CLAUDE_PLUGIN_ROOT}` — omp additionally
