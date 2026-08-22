@@ -81,15 +81,6 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" gate"
           }
         ]
-      },
-      {
-        "matcher": "justsend_work_start",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hero-image-guard.sh\""
-          }
-        ]
       }
     ],
     "PreCompact": [

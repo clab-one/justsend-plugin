@@ -70,24 +70,6 @@ if bash ./open-record-reminder.sh | grep -q delta; then pass=$((pass+1)); else p
 post '{"tool_name":"mcp__justsend__justsend_work_complete","tool_input":{"task_key":"delta","summary":"s"}}'
 if [ -z "$(bash ./open-record-reminder.sh)" ]; then pass=$((pass+1)); else printf 'FAIL reminder spoke with nothing open\n'; fail=$((fail+1)); fi
 
-# --- hero-image-guard: 기록은 그림과 함께 열린다 -----------------------------
-# 나중에 붙일 수 없는 종류의 누락이다 - 재개 호출은 첨부하지 않는다. 그래서 첫
-# 호출에서 막는다(실측 2026-08-22: 첨부 0인 기록이 남고 고칠 길이 없었다).
-hero() { printf '%s' "$1" | bash ./hero-image-guard.sh >/dev/null 2>&1; }
-
-hero_blocks() {
-  if hero "$2"; then printf 'FAIL hero blocks: %s\n' "$1"; fail=$((fail+1)); else pass=$((pass+1)); fi
-}
-hero_allows() {
-  if hero "$2"; then pass=$((pass+1)); else printf 'FAIL hero allows: %s\n' "$1"; fail=$((fail+1)); fi
-}
-
-: > /tmp/js-hero-guard-real.png
-hero_blocks '그림 없는 work_start' '{"tool_name":"justsend_work_start","tool_input":{"task_key":"t","task":"x"}}'
-hero_blocks '없는 경로' '{"tool_name":"justsend_work_start","tool_input":{"image_path":"/tmp/js-hero-guard-missing.png"}}'
-hero_allows '있는 그림' '{"tool_name":"justsend_work_start","tool_input":{"image_path":"/tmp/js-hero-guard-real.png"}}'
-hero_allows '노트는 면제' '{"tool_name":"justsend_work_note","tool_input":{"note":"x"}}'
-
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
 

@@ -75,12 +75,18 @@ document.
   dropping it.
 - **No `#` on that first line.** It is already the largest type on both surfaces,
   so the marker only reaches the reader as literal `##` next to the work id.
-- **Every task record opens with a picture.** `justsend_work_start` requires
-  `image_path`, and a `PreToolUse` guard refuses the call without it. This is not
-  a style preference: the tool honours the image only while it *creates* the
-  record, so a second call with the image returns `materialized: true` and
-  attaches nothing — the record is then stuck without one until it is retracted
-  and rebuilt. Notes are exempt; a comment on the task does not get its own hero.
+- **Every task record opens with a picture. Always pass `image_path`.** Not when
+  it seems useful — every time you open a record for new work. One record is one
+  task, and the picture is what makes that row answerable on a phone list where
+  every other row is text.
+
+  **You get one chance.** The tool honours `image_path` only while it *creates*
+  the record. Call `justsend_work_start` again on the same `task_key` with an
+  image and it returns `materialized: true` and attaches nothing — the record
+  then has no picture until it is retracted and rebuilt. So draw it before the
+  first call, not after you notice it is missing.
+
+  Notes are exempt: a comment on the task does not get its own hero.
 - **`image_path` is for a drawing, not for text set large.** eli5 in one line:
   *big picture, very few words, for someone who knows nothing about it.* The
   picture has to carry the mechanism — what moves where, and where it stops. A

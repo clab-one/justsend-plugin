@@ -10,6 +10,12 @@ and one-off lookups are not tracked.
   safe and never opens a second record. It returns `item_id` immediately, so
   write notes straight after it — the app applies the queue later, and waiting or
   polling for it to land buys nothing.
+- **Always open a task record with a picture.** Pass `image_path` on every
+  `justsend_work_start` for new work — a PNG or JPEG you drew for this task. The
+  tool honours it only while it creates the record: a later call with the image
+  attaches nothing, so the record stays pictureless unless it is retracted and
+  rebuilt. Draw a mechanism, not a sentence set large — big picture, very few
+  words, in the language the record is written in. Notes are exempt.
 - **Always bind the record to its repository.** Pass `project` with the repository
   name (the working-directory basename) on `justsend_work_start`. It becomes a
   tag, and that tag is the only way to ask "what work exists for this repo" later.
