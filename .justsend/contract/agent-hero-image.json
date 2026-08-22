@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "task_key": "agent-hero-image",
+  "objective": "에이전트가 기록 맨 위에 대표 이미지 한 장을 세우고, 그 그림이 목록 줄에도 보관함과 같은 원칙으로 뜬다",
+  "tier": "HEAVY",
+  "criteria": [
+    {
+      "id": "c1",
+      "scenario": "에이전트 원장 목록에서 대표 이미지를 가진 기록의 줄을 실앱에서 캡처한다",
+      "observable": "줄 오른쪽에 56pt 썸네일이 서고, 첨부 없는 줄에는 빈 자리가 생기지 않는다",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T07:25:13.518Z",
+          "path": "/Users/steve/.justsend/evidence/agent-hero-image/red-no-thumbnail.png",
+          "note": "포트 전 실앱 캡처: 원장 줄이 제목·메타만 세우고 썸네일이 없다. 상세는 같은 시점에 그림을 그린다 — 목록만 비어 있었다"
+        },
+        "green": {
+          "at": "2026-08-22T07:25:19.337Z",
+          "path": "/Users/steve/.justsend/evidence/agent-hero-image/green-line-thumbnail.log",
+          "note": "patches/0163 이 벤더에 적용되고(82개 전부 적용) lastUpdatedKey 재조회 구독이 들어갔다. Release 아카이브·Developer ID 내보내기 성공"
+        },
+        "surface": {
+          "at": "2026-08-22T07:25:27.379Z",
+          "path": "/Users/steve/.justsend/evidence/agent-hero-image/surface-row-thumbnail.png",
+          "note": "정식 서명 설치본 실앱, 실계정, 에이전트 → 전체. 첫 줄 'plugin-2 method: 대표 이미지 실앱 확인'(16:22) 오른쪽에 그라데이션 썸네일이 서 있고, 첨부 없는 아래 줄들은 글자만 남아 빈 사각형이 생기지 않았다"
+        }
+      },
+      "cleanup_receipts": []
+    }
+  ],
+  "created_at": "2026-08-22T07:25:06.731Z",
+  "updated_at": "2026-08-22T07:26:34.260Z",
+  "enforce": true,
+  "closed_at": "2026-08-22T07:26:34.259Z"
+}

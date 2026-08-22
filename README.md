@@ -116,7 +116,6 @@ pi has no MCP client, so record tools are unavailable. Copy the skills manually:
 ```bash
 mkdir -p ~/.pi/agent/skills
 cp -R ~/justsend-plugin/plugins/justsend/skills/justsend-work ~/.pi/agent/skills/
-cp -R ~/justsend-plugin/plugins/justsend/skills/justsend-verify ~/.pi/agent/skills/
 ```
 
 ### Record server
@@ -220,12 +219,11 @@ hooks provide additional automation.
 
 | Component | Does |
 |---|---|
-| `skills/justsend-work` | Work-record discipline and tool routing |
-| `skills/justsend-verify` | Tier triage, contract registration, the failing-first loop, the gate |
+| `skills/justsend-work` | One skill: record discipline, tool routing, tier triage, contract registration, and the writing rules. `plan.md`, `loop.md` and `review.md` load only when their phase begins |
 | `mcp/contract.mjs` | The contract tools *and* the hooks' view of the same state. Zero dependencies, node stdlib only |
 | `hooks` → `SessionStart` | States the contract, names any open record, restates the active contract |
 | `hooks` → `UserPromptSubmit` | Reminds you to close the open record, or mark it blocked |
-| `hooks` → `PostToolUse` | Tracks the open `task_key`; closes the contract when the record completes |
+| `hooks` → `PostToolUse` | Tracks the open `task_key`; closes the contract when the record completes; stands both gates down on a note with `blocker: true` |
 | `hooks` → `PreToolUse` (`Bash`) | Blocks high-confidence destructive commands, build-output directories exempted |
 | `hooks` → `PreToolUse` (`justsend_work_complete`) | **The gate.** Refuses completion while a criterion is unproven |
 | `hooks` → `PreCompact` | Re-injects the contract summary so it survives compaction |
@@ -252,7 +250,18 @@ choice.
 
 Use `justsend_work_note(blocker:true)` when a human must act, or
 `justsend_contract_set(enforce: false)` when work is tracked without a gate.
-Both choices remain visible in the record.
+Both choices remain visible in the record. The blocker note stamps `blocked_at`,
+which stands the completion gate and the Stop gate down without marking the work
+done — the next `justsend_evidence` clears it and re-arms, and
+`justsend_contract_status` keeps reporting a `Blocked since` line.
+
+`justsend_contract_status(format: "report")` renders the contract as one artifact —
+the objective, a table row per criterion with its result, and what is still
+unproven — so the record body and the closing summary quote one generated table
+instead of two hand-assembled ones. The hooks keep the terse `summarize()` view,
+which carries evidence paths and per-criterion status the agent needs and a person
+does not. The skill carries the rest: what the app renders, and what it prints as
+literal characters.
 
 Other hooks are advisory and exit 0 on doubt. The destructive-command guard and
 completion gate fail open when their own plumbing is missing (`node` or the

@@ -74,8 +74,11 @@ unproven.
 Two honest ways past a gate you genuinely cannot satisfy, both of which say so out
 loud:
 
-- `justsend_work_note(blocker: true)` when a human has to act — closes the record
-  and disarms the stop gate. Say what is needed.
+- `justsend_work_note(blocker: true)` when a human has to act — stamps
+  `blocked_at`, which stands the completion gate and the Stop hook down and drops
+  the record from the open-record reminder. It is not a close: the next
+  `justsend_evidence` clears it and re-arms, and `justsend_contract_status` keeps
+  reporting the contract with a `Blocked since` line. Say what is needed.
 - `justsend_contract_set(enforce: false)` when the work is tracked rather than
   gated. State that you did it and why.
 

@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "task_key": "okf-md-authoring-review",
+  "objective": "One skill, one contract, one generated artifact: merge the justsend plugin's two skills into one, make the contract render the readable result itself, and repair the blocker escape hatch the gate message already promises.",
+  "tier": "HEAVY",
+  "criteria": [
+    {
+      "id": "c1",
+      "scenario": "printf a justsend_work_note payload with \"blocker\":true into `bash plugins/justsend/scripts/contract.sh block`, then run `node plugins/justsend/mcp/contract.mjs gate <task_key>` on a contract holding one pending criterion; then apply justsend_evidence kind=red and re-run the gate",
+      "observable": "gate exits 0 with empty stdout while blocked, and exits 2 with 'Contract gate: criteria still unproven' once new evidence lands",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:26:09.023Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-blocker.log",
+          "note": "contract.sh block and the block subcommand do not exist: node exits 1 on usage, blocked_at is never written, gate stays at exit 2"
+        },
+        "green": {
+          "at": "2026-08-22T05:29:25.114Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-blocker.log",
+          "note": "block subcommand + contract.sh payload gate land: 57 pass, 0 fail"
+        },
+        "surface": {
+          "at": "2026-08-22T05:30:15.304Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-blocker.log",
+          "note": "real shell hook path in a scratch workspace: plain note -> gate exit 2; blocker note -> gate 0 and continuation 0; summary carries 'Blocked since'; new RED evidence -> gate exit 2 again"
+        }
+      },
+      "cleanup_receipts": [
+        {
+          "at": "2026-08-22T05:31:35.868Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-blocker-rerun.log",
+          "note": "DISCLOSURE: c1's recorded surface artifact surface-blocker.log is INVALID — 31 bytes reading 'error: command not found: exec', because an exec-redirect did not take in the capture shell and the transcript went to the tool result instead of the file. It is deliberately left in place rather than overwritten, so the bad artifact stays auditable. The genuine re-capture is this immutable path, sha256 abfe6a3f2dbf2917f3eeafae139ce70ba04117448af32ec1830e233ce1541790, 5695 bytes: gate 2 unproven, plain note leaves 2, blocker note gives gate 0 and Stop 0, Blocked-since line present, second block keeps the first timestamp, new RED evidence returns both gates to 2."
+        }
+      ]
+    },
+    {
+      "id": "c2",
+      "scenario": "invoke the omp tool_result handler in hooks/post/justsend.ts with toolName mcp__justsend_work_note and input {blocker:true} against a live contract, and again without the blocker flag",
+      "observable": "blocked_at is set and gateReason is undefined for the blocker note; blocked_at stays undefined and gateReason still names c1[pending] for the ordinary note",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:26:12.641Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-blocker.log",
+          "note": "omp tool_result path ignores blocker:true — 'a blocker note disarms the contract gate' fails, blocked_at undefined"
+        },
+        "green": {
+          "at": "2026-08-22T05:29:29.129Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-blocker.log",
+          "note": "omp tool_result blocker branch lands: both 'registered handlers' blocker tests pass"
+        },
+        "surface": {
+          "at": "2026-08-22T05:30:19.765Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-omp.log",
+          "note": "omp tool_result handler driven directly: ordinary note leaves blocked_at undefined and the gate armed; blocker note stamps blocked_at 2026-08-22T05:30:10.697Z and gateReason becomes undefined; contract file dumped inline"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c3",
+      "scenario": "run `node plugins/justsend/mcp/contract.mjs summary` and justsend_contract_status against a blocked contract",
+      "observable": "both carry a 'Blocked since <timestamp>' line, so a compaction cannot hide the disarmed gate",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:26:16.628Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-blocker.log",
+          "note": "summarize() emits no blocked line: received 'Contract t [LIGHT]... Unproven 1: c1'"
+        },
+        "green": {
+          "at": "2026-08-22T05:29:32.802Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-blocker.log",
+          "note": "summarize() emits the Blocked since line; both the MCP status tool and the summary CLI carry it"
+        },
+        "surface": {
+          "at": "2026-08-22T05:31:41.629Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-blocker-rerun.log",
+          "note": "section 4 of the transcript: contract.sh summary on the blocked contract prints 'Blocked since 2026-08-22T05:31:26.641Z — waiting on a human; the gate is disarmed until new evidence lands.'"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c4",
+      "scenario": "bun test in plugins/justsend, bash plugins/justsend/scripts/test-hooks.sh, and JSON.parse of the four manifests including the edited hooks/hooks.json",
+      "observable": "57 bun tests pass, 25 shell assertions pass, all four manifests parse; claude plugin validate is NOT RUN because the binary is absent on this machine, and that is recorded rather than claimed",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:26:20.163Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-blocker.log",
+          "note": "bun test exit=1, 5 failures across contract.test.ts and hook.test.ts"
+        },
+        "green": {
+          "at": "2026-08-22T05:36:03.176Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-suite.log",
+          "note": "57 bun pass / 0 fail, 25 shell assertions pass, four manifests parse ok, and the log carries the literal 'NOT RUN: claude is not installed on this machine' line instead of a false pass"
+        },
+        "surface": {
+          "at": "2026-08-22T05:36:09.594Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-suite.log",
+          "note": "same run is the surface: these three commands ARE how a maintainer checks this plugin, per the README Development section"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c5",
+      "scenario": "read skills/justsend-work/reference/record-shapes.md and the edited skill anchors as a reviewer holding only the render-budget table",
+      "observable": "every prescribed construct is one the render evidence proves, no shape asks for frontmatter, footnotes, or GitHub alerts, and no shape presents a local artifact path as an openable citation",
+      "proof": "review",
+      "status": "surfaced",
+      "evidence": {
+        "surface": {
+          "at": "2026-08-22T05:45:28.706Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-final.log",
+          "note": "Independent review (GateReview) found two gate defects and three prose items. Both defects fixed and proven as c6/c7 with their own RED->GREEN->SURFACE. Prose items applied: the render mechanisms were restated correctly (frontmatter draws as a rule plus a setext heading, not literal text; [!NOTE] draws as a quote), the unevidenced 'user can tick them' interactivity claim was dropped, and the duplicated always-pair was cut so the file carries only the two unguessable constraints plus the plain-language lead. Both test gaps the reviewer named are closed by the c6 and c7 tests. Final: 59 bun pass, 25 shell assertions pass."
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c6",
+      "scenario": "pipe a justsend_work_note payload with blocker:false whose note body contains the word 'true' into contract.sh block, then run the gate",
+      "observable": "blocked_at is not stamped and the gate still exits 2",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:43:19.273Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-review-findings.log",
+          "note": "'blocker false does not disarm, even when the body says true' fails: the inherited glob stamped blocked_at"
+        },
+        "green": {
+          "at": "2026-08-22T05:43:28.440Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-review-findings.log",
+          "note": "grep -qE on the blocker field replaces the glob in both contract.sh and record-state.sh: 59 pass, 0 fail"
+        },
+        "surface": {
+          "at": "2026-08-22T05:43:38.806Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-review-findings.log",
+          "note": "real shell bridge: blocker:false with 'true' in the body leaves blocked_at unstamped (grep -c = 0) and the gate still exits 2"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c7",
+      "scenario": "register two contracts in one directory, block the more recently updated one, then run contract.sh continuation",
+      "observable": "the Stop hook exits 2 and names the still-live contract, while a gate call on the blocked contract itself exits 0",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:43:24.190Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-review-findings.log",
+          "note": "'a blocked contract does not shadow a live one for the session hooks' fails: continuation exited 0 with an unrelated contract still unproven"
+        },
+        "green": {
+          "at": "2026-08-22T05:43:33.938Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-review-findings.log",
+          "note": "activeContract now prefers an unblocked contract and falls back to a blocked one only when it is the only one: 59 pass, 0 fail"
+        },
+        "surface": {
+          "at": "2026-08-22T05:43:44.499Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-review-findings.log",
+          "note": "real Stop hook with two contracts: continuation exits 2 naming live-one while blocked-one carries blocked_at 2026-08-22T05:43:04.024Z, and a gate call on blocked-one itself exits 0"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c8",
+      "scenario": "justsend_contract_status(task_key, format: \"report\") on a contract holding a criterion whose scenario contains a pipe, before and after every criterion is surfaced",
+      "observable": "renders objective, one table row per criterion with PASS or the current status, escapes the pipe, lists what is unproven, names a blocked contract, and still answers once the contract is done rather than reporting 'no open contract'",
+      "proof": "red-green",
+      "status": "surfaced",
+      "evidence": {
+        "red": {
+          "at": "2026-08-22T05:52:59.713Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/red-report.log",
+          "note": "three report tests fail: no generator exists, so format:report fell through to summarize"
+        },
+        "green": {
+          "at": "2026-08-22T05:53:46.885Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-report.log",
+          "note": "report() lands with pipe escaping and the done-contract fallback: 63 pass, 0 fail"
+        },
+        "surface": {
+          "at": "2026-08-22T05:53:51.938Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/surface-report.log",
+          "note": "the generator run against this very contract, 2616 bytes: objective line, nine table rows with PASS, pipes in the c1 and c6 scenarios escaped so the table holds"
+        }
+      },
+      "cleanup_receipts": []
+    },
+    {
+      "id": "c9",
+      "scenario": "after merging justsend-verify into justsend-work: grep the repo for justsend-verify and record-shapes references, run bun test and test-hooks.sh, and parse the four manifests",
+      "observable": "one skill directory remains, the reference grep returns nothing, 63 bun tests and 25 shell assertions pass, all four manifests parse",
+      "proof": "review",
+      "status": "surfaced",
+      "evidence": {
+        "surface": {
+          "at": "2026-08-22T05:53:57.825Z",
+          "path": "/Users/steve/.justsend/evidence/okf-md-authoring-review/green-merge.log",
+          "note": "one skill directory remains (justsend-work with plan/loop/review + reference), the justsend-verify and record-shapes grep prints 'none', 63 bun tests and 25 shell assertions pass, four manifests parse. Every reference migrated in the same turn: README install block and components table, instructions-block.md, and the user's global AGENTS.md line that pointed at skill://justsend-verify."
+        }
+      },
+      "cleanup_receipts": []
+    }
+  ],
+  "created_at": "2026-08-22T05:24:01.297Z",
+  "updated_at": "2026-08-22T11:09:11.449Z",
+  "enforce": true,
+  "type": "method",
+  "closed_at": "2026-08-22T11:09:11.448Z"
+}

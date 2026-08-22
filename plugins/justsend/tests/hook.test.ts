@@ -6,6 +6,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import justsend, { guardBash, openRecords, workVerb } from "../hooks/post/justsend";
+// @ts-expect-error — plain .mjs shipped to node, no type declarations by design.
+import { callTool, gateReason, loadContract } from "../mcp/contract.mjs";
 
 const CWD = "/tmp/js-omp-hook-test";
 let state: string;
@@ -70,6 +72,53 @@ describe("registered handlers", () => {
 
     await result({ toolName: "mcp__justsend_work_complete", input: { task_key: "omp-hook" }, isError: false }, { cwd: CWD });
     expect(openRecords(CWD)).not.toContain("omp-hook");
+  });
+
+  // The gate's message names `justsend_work_note(blocker: true)` as the way out
+  // when a human has to act, so every harness that runs the hooks has to honour
+  // it. omp runs this file instead of hooks.json, which is why it needs its own
+  // proof rather than inheriting the shell one.
+  test("a blocker note disarms the contract gate", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "js-omp-contract-"));
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "omp-blocked",
+      objective: "prove it",
+      tier: "LIGHT",
+      criteria: [{ scenario: "run the thing", observable: "exit code is 0" }],
+    });
+    expect(gateReason(loadContract(cwd, "omp-blocked"))).toContain("c1[pending]");
+
+    const result = collect().get("tool_result")!;
+    await result(
+      {
+        toolName: "mcp__justsend_work_note",
+        input: { task_key: "omp-blocked", blocker: true, note: "needs a human" },
+        isError: false,
+      },
+      { cwd },
+    );
+
+    expect(loadContract(cwd, "omp-blocked").blocked_at).toBeString();
+    expect(gateReason(loadContract(cwd, "omp-blocked"))).toBeUndefined();
+  });
+
+  test("an ordinary note leaves the gate armed", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "js-omp-contract-"));
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "omp-open",
+      objective: "prove it",
+      tier: "LIGHT",
+      criteria: [{ scenario: "run the thing", observable: "exit code is 0" }],
+    });
+
+    const result = collect().get("tool_result")!;
+    await result(
+      { toolName: "mcp__justsend_work_note", input: { task_key: "omp-open", note: "progress" }, isError: false },
+      { cwd },
+    );
+
+    expect(loadContract(cwd, "omp-open").blocked_at).toBeUndefined();
+    expect(gateReason(loadContract(cwd, "omp-open"))).toContain("c1[pending]");
   });
 
   test("compaction re-injects the open record", async () => {

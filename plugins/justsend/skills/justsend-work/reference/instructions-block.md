@@ -49,4 +49,6 @@ and one-off lookups are not tracked.
 - **When the work has to be provably done, register a contract.**
   `justsend_contract_set` takes the success criteria, `justsend_evidence` records
   the failing-then-passing artifact for each, and `justsend_work_complete` is
-  refused while any criterion is unproven. See the `justsend-verify` skill.
+  refused while any criterion is unproven, and
+  `justsend_contract_status(format: "report")` renders the result table to paste
+  into the closing summary. See the `justsend-work` skill.

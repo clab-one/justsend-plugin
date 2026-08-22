@@ -30,6 +30,9 @@ import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
 const STATE_DIR = join(".justsend", "contract");
+/** Open but stable: the word lands in the record title, so it is a fold key for a
+ *  saved search, not decoration. `change` is the fallback, never a choice. */
+const RECORD_TYPES = ["fix", "feature", "investigation", "migration", "method", "review"];
 const UNSAFE = /[^a-zA-Z0-9._-]+/g;
 
 const contractDir = (cwd) => join(cwd, STATE_DIR);
@@ -210,18 +213,101 @@ function summarize(contract) {
       ? "Every criterion is proven — justsend_work_complete is allowed."
       : `Unproven ${open.length}: ${open.map((c) => c.id).join(", ")}`,
   );
+  // A disarmed gate that says nothing is how an unproven task quietly becomes a
+  // finished one. The compaction and session-start hooks read this same text.
+  if (contract.blocked_at) {
+    lines.push(
+      `Blocked since ${contract.blocked_at} — waiting on a human; the gate is disarmed until new evidence lands.`,
+    );
+  }
   return lines.join("\n");
 }
 
-/** Most recently updated contract that is neither closed nor finished. */
-const activeContract = (cwd) => listContracts(cwd).find((c) => !c.closed_at && !isDone(c));
+/**
+ * The contract as one artifact: a person reads it at a glance, and an agent
+ * resuming after a compaction gets the same thing. Generated rather than
+ * hand-assembled, so the record body and the closing summary quote one table
+ * rather than two written from memory. The hooks deliberately keep `summarize()`:
+ * they serve the agent, and evidence paths and per-criterion status are exactly
+ * what a person reading on a phone does not want. Paste this and add what it
+ * cannot know, which is what failed and what it taught.
+ */
+function report(contract) {
+  // A scenario is a literal command, so it may well contain a pipe. It is also
+  // often a whole sentence, and a 200-character cell is the text wall this view
+  // exists to avoid — the full text stays in the contract file and in
+  // `format: "status"`, so bounding it here loses nothing.
+  const cell = (s) => {
+    const flat = String(s ?? "")
+      .replace(/\|/g, "\\|")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (flat.length <= 80) return flat;
+    const cut = flat.slice(0, 80);
+    const space = cut.lastIndexOf(" ");
+    return `${(space > 40 ? cut.slice(0, space) : cut).trimEnd()}…`;
+  };
+  // The objective's first clause is the subject. A title that carries the whole
+  // sentence stops being a fold key: saved searches are text queries over a
+  // trigram index, so the shorter and more regular it is, the better it folds.
+  // 80 is not a style choice: `justsend_work_start` takes the first line of `task`
+  // as the record title and cuts it at 80 characters, so a longer line comes back
+  // severed mid-word. Bound it here, at the same budget, with the type included.
+  const TITLE_BUDGET = 80;
+  const type = contract.type ?? "change";
+  const clause = String(contract.objective ?? "")
+    .split(/[;.:\n]/)[0]
+    .replace(/\s+/g, " ")
+    .trim();
+  const room = TITLE_BUDGET - (type.length + 2);
+  let subject = clause;
+  if (subject.length > room) {
+    const cut = subject.slice(0, room - 1);
+    const space = cut.lastIndexOf(" ");
+    subject = `${(space > room / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+  }
+  // **No prose here.** The app ships in sixteen languages and this process cannot
+  // know which one the reader has, so every word it emits would be wrong for
+  // most of them. It emits structure — ids, PASS/FAIL, the bounded observable —
+  // and the agent writes the summary and the failures around it in the language
+  // it is already speaking.
+  // The only word is the type, and it is deliberate: it lands in the record title
+  // as an ASCII fold key for a saved search, the same reason the work id does.
+  // Everything else is a mark, an id, or text the agent wrote — no header row, so
+  // the agent supplies one in the reader's language.
+  // The header cells are empty on purpose: a delimiter row is what makes this a
+  // GFM table rather than a paragraph, and empty cells carry no word to translate.
+  const lines = [`${contract.type ?? "change"}: ${subject}`, "", "|  |  |  |", "|---|---|---|"];
+  for (const c of contract.criteria) {
+    lines.push(`| ${c.id} | ${c.status === "surfaced" ? "✅" : "—"} | ${cell(c.observable)} |`);
+  }
+  const open = unproven(contract);
+  if (open.length > 0) {
+    lines.push("", `${contract.criteria.length - open.length}/${contract.criteria.length}`);
+  }
+  return lines.join("\n");
+}
+
+/** Most recently updated contract that is neither closed nor finished, with a
+ *  live one preferred over a blocked one: blocking stamps `updated_at`, so the
+ *  blocked contract would otherwise sort to the front and silence the gate for
+ *  an unrelated contract that is still unproven. A blocked contract is still
+ *  returned when it is the only one, so `summary` keeps naming it. */
+const activeContract = (cwd) => {
+  const open = listContracts(cwd).filter((c) => !c.closed_at && !isDone(c));
+  return open.find((c) => !c.blocked_at) ?? open[0];
+};
 
 /** Locked only while the contract is live, still has something unproven, and the
  *  gate was not explicitly disarmed. Keyed off the unproven list rather than
  *  isDone() so a contract with no criteria at all cannot lock on an empty
- *  message — there is nothing to prove, so there is nothing to gate. */
+ *  message — there is nothing to prove, so there is nothing to gate.
+ *
+ *  `blocked_at` is the exit this gate's own message promises: a task waiting on
+ *  a human is not a task the agent can prove, so holding the turn open would
+ *  only loop. The next piece of evidence clears the stamp and re-arms. */
 function gateReason(contract) {
-  if (!contract || contract.enforce === false || contract.closed_at) return undefined;
+  if (!contract || contract.enforce === false || contract.closed_at || contract.blocked_at) return undefined;
   const open = unproven(contract);
   if (open.length === 0) return undefined;
   return (
@@ -262,6 +348,12 @@ const TOOLS = [
         task_key: { type: "string", description: "Same stable key as the work record." },
         objective: { type: "string", description: "One sentence: what done means." },
         tier: { type: "string", enum: ["LIGHT", "HEAVY"], description: "LIGHT for a contained change, HEAVY when the blast radius spans subsystems." },
+        type: {
+          type: "string",
+          enum: RECORD_TYPES,
+          description:
+            "What kind of record this is. Becomes the first word of the record title, where a saved search can fold on it. Omitted reads as \"change\".",
+        },
         criteria: { type: "array", minItems: 1, items: CRITERION_SCHEMA },
         enforce: {
           type: "boolean",
@@ -292,10 +384,17 @@ const TOOLS = [
   {
     name: "justsend_contract_status",
     description:
-      "Per-criterion status, evidence paths, and the unproven list for one contract. Use this after a compaction or when resuming instead of re-reading notes. Omit task_key for the most recently updated open contract.",
+      "Per-criterion status, evidence paths, and the unproven list for one contract. Use this after a compaction or when resuming instead of re-reading notes. Omit task_key for the most recently updated open contract. Pass format: \"report\" for the readable artifact to paste into the record or the closing summary — objective, one table row per criterion, and what is still unproven.",
     inputSchema: {
       type: "object",
-      properties: { task_key: { type: "string" } },
+      properties: {
+        task_key: { type: "string" },
+        format: {
+          type: "string",
+          enum: ["status", "report"],
+          description: "Default status: the terse agent-facing view. report: the artifact a person reads.",
+        },
+      },
       additionalProperties: false,
     },
   },
@@ -304,10 +403,16 @@ const TOOLS = [
 function callTool(cwd, name, args) {
   if (name === "justsend_contract_set") {
     const contract = loadContract(cwd, args.task_key) ?? newContract(args.task_key, args.objective, args.tier);
+    if (args.type !== undefined && !RECORD_TYPES.includes(args.type)) {
+      throw new Error(`Unknown record type "${args.type}". Use one of: ${RECORD_TYPES.join(", ")}`);
+    }
     contract.objective = args.objective;
     contract.tier = args.tier;
+    if (args.type !== undefined) contract.type = args.type;
     contract.enforce = args.enforce ?? true;
-    delete contract.closed_at; // Re-registering resumes: unclose and re-arm the gate.
+    // Re-registering resumes: unclose, unblock, and re-arm the gate.
+    delete contract.closed_at;
+    delete contract.blocked_at;
     upsertCriteria(contract, args.criteria);
     saveContract(cwd, contract);
     return `${summarize(contract)}\nContract stored at ${contractPath(cwd, contract.task_key)}`;
@@ -323,6 +428,9 @@ function callTool(cwd, name, args) {
       throw new Error(`${args.kind} evidence requires artifact_path — capture the output to a file and pass that path.`);
     }
     const criterion = applyEvidence(contract, args.criterion_id, { kind: args.kind, path: realPath, note: args.note });
+    // Evidence means the agent is working again, so a human-blocked stamp is
+    // stale: re-arm rather than leave the gate open for the rest of the task.
+    delete contract.blocked_at;
     saveContract(cwd, contract);
     const open = unproven(contract);
     const remaining =
@@ -333,14 +441,19 @@ function callTool(cwd, name, args) {
   }
 
   if (name === "justsend_contract_status") {
-    const contract = args.task_key ? loadContract(cwd, args.task_key) : activeContract(cwd);
+    // A finished contract is not "active", but the report is wanted precisely
+    // then — it is what goes into the closing summary — so fall back to the most
+    // recent one for that format rather than answering "no open contract".
+    const contract = args.task_key
+      ? loadContract(cwd, args.task_key)
+      : (activeContract(cwd) ?? (args.format === "report" ? listContracts(cwd)[0] : undefined));
     if (!contract) {
       const known = listContracts(cwd).map((c) => c.task_key);
       return known.length > 0
         ? `No open contract. Known contracts: ${known.join(", ")}`
         : "No contract in this directory — start one with justsend_contract_set.";
     }
-    return summarize(contract);
+    return args.format === "report" ? report(contract) : summarize(contract);
   }
 
   throw new Error(`Unknown tool: ${name}`);
@@ -445,6 +558,18 @@ function cli(argv) {
     return 0;
   }
 
+  if (cmd === "block") {
+    // PostToolUse on a `justsend_work_note` that carries `blocker: true`. The
+    // first stamp is the one that counts: re-blocking must not reset the clock
+    // that tells the user how long this has been waiting on them.
+    const contract = arg ? loadContract(cwd, arg) : undefined;
+    if (contract && !contract.blocked_at) {
+      contract.blocked_at = new Date().toISOString();
+      saveContract(cwd, contract);
+    }
+    return 0;
+  }
+
   if (cmd === "summary") {
     const contract = activeContract(cwd);
     if (contract) process.stdout.write(`${summarize(contract)}\n`);
@@ -469,7 +594,7 @@ function cli(argv) {
     return 0;
   }
 
-  process.stderr.write("usage: contract.mjs [gate|close|summary|continuation|line] [task_key]\n");
+  process.stderr.write("usage: contract.mjs [gate|close|block|summary|continuation|line] [task_key]\n");
   return 1;
 }
 
@@ -486,6 +611,7 @@ if (entry.endsWith("contract.mjs")) {
 }
 
 export {
+  TOOLS,
   applyEvidence,
   callTool,
   contractPath,
@@ -494,6 +620,7 @@ export {
   listContracts,
   loadContract,
   newContract,
+  report,
   saveContract,
   summarize,
   unproven,

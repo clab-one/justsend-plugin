@@ -180,6 +180,12 @@ export default function justsend(pi: HookAPILike): void {
     if (verb === "work_complete" || verb === "work_retract") {
       run("contract.sh", ["close", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
     }
+    // The blocker decision is made here rather than in the script because this
+    // path passes the task_key as an argument and never hands the script a
+    // payload — the Claude/Codex path is the one that reads the note from stdin.
+    if (verb === "work_note" && event.input?.blocker) {
+      run("contract.sh", ["block", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
+    }
     return undefined;
   });
 

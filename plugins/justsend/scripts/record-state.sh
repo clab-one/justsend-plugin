@@ -3,8 +3,10 @@
 # Advisory: on any doubt this exits 0 and records nothing.
 #
 # `work_start` opens, `work_complete` and `work_retract` close, and a note with
-# `blocker: true` closes the gate too (a blocked task is waiting on a human, not
-# on the agent). `progress_note` never opens a record: the parent owns it.
+# `blocker: true` drops the task from this list too — a blocked task is waiting
+# on a human, not on the agent, so nagging about it is noise. This file only
+# owns the reminder; the contract gate is disarmed separately by
+# `contract.sh block`. `progress_note` never opens a record: the parent owns it.
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 
@@ -26,9 +28,10 @@ js_forget() {
 case $payload in
   *justsend_work_complete*|*justsend_work_retract*|*justsend_work_cancel*) js_forget ;;
   *justsend_work_note*)
-    case $payload in
-      *'"blocker"'*true*) js_forget ;;
-    esac
+    # One spelling of "is this a blocker" across both scripts: a glob for `true`
+    # anywhere after the word also fires on `"blocker": false` in a note whose
+    # body says "true". contract.sh matches the field the same way.
+    printf '%s' "$payload" | grep -qE '"blocker"[[:space:]]*:[[:space:]]*true' && js_forget
     ;;
   *justsend_work_start*)
     touch "$file"

@@ -43,6 +43,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" close 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "justsend_work_note",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" block 2>/dev/null || true"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -70,6 +79,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" gate"
+          }
+        ]
+      },
+      {
+        "matcher": "justsend_work_start",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/hero-image-guard.sh\""
           }
         ]
       }

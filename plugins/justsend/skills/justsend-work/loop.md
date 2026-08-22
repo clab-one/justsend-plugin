@@ -66,7 +66,8 @@ criterion closes, tear it down and record the receipt:
 - containers → remove; bound ports → confirm nothing listens
 - temp files → remove the paths you created; unset QA-only env vars
 
-No receipt means the criterion stays open.
+Nothing in code checks a receipt — the gate reads status alone — so this one is
+on you: do not close a criterion whose teardown you have not recorded.
 
 ## Delegation
 
