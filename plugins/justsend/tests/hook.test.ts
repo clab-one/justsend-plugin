@@ -2,10 +2,10 @@
 // destructive guard blocks and allows the same commands the shell tests cover,
 // and a work tool call opens or closes the open-record list.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import justsend, { guardBash, openRecords, workVerb } from "../hooks/post/justsend";
+import justsend, { guardBash, guardComplete, openRecords, workVerb } from "../hooks/post/justsend";
 // @ts-expect-error — plain .mjs shipped to node, no type declarations by design.
 import { callTool, gateReason, loadContract } from "../mcp/contract.mjs";
 
@@ -121,6 +121,44 @@ describe("registered handlers", () => {
     expect(gateReason(loadContract(cwd, "omp-open"))).toContain("c1[pending]");
   });
 
+  test("a failed omp completion releases its contract lease", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "js-omp-lease-"));
+    const proof = join(cwd, "review.log");
+    writeFileSync(proof, "approved\n");
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "omp-lease",
+      objective: "lease",
+      tier: "LIGHT",
+      criteria: [{ id: "c1", scenario: "review", observable: "approved", proof: "review" }],
+    });
+    callTool(cwd, "justsend_evidence", {
+      task_key: "omp-lease",
+      criterion_id: "c1",
+      kind: "surface",
+      artifact_path: proof,
+    });
+
+    const handlers = collect();
+    expect(
+      await handlers.get("tool_call")!(
+        { toolName: "mcp__justsend_work_complete", input: { task_key: "omp-lease" } },
+        { cwd },
+      ),
+    ).toBeUndefined();
+    expect(loadContract(cwd, "omp-lease").completion_lease).toBeDefined();
+
+    await handlers.get("tool_result")!(
+      {
+        toolName: "mcp__justsend_work_complete",
+        input: { task_key: "omp-lease" },
+        isError: true,
+      },
+      { cwd },
+    );
+    expect(loadContract(cwd, "omp-lease").completion_lease).toBeUndefined();
+    expect(loadContract(cwd, "omp-lease").closed_at).toBeUndefined();
+  });
+
   test("compaction re-injects the open record", async () => {
     const handlers = collect();
     const result = handlers.get("tool_result")!;
@@ -134,10 +172,93 @@ describe("registered handlers", () => {
   });
 });
 
+describe("contract runtime resolver", () => {
+  const root = join(import.meta.dir, "..");
+  const runner = join(root, "mcp", "run.sh");
+  const hook = join(root, "scripts", "contract.sh");
+
+  function fakeRuntime(dir: string, name: string) {
+    const path = join(dir, name);
+    writeFileSync(path, `#!/bin/sh\nprintf '%s\\n' "$*" > "$JUSTSEND_RUNTIME_ARGS"\n`);
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  test.each(["bun", "node"])("%s-only runs MCP subcommands through the same entrypoint", (name) => {
+    const dir = mkdtempSync(join(tmpdir(), `justsend-${name}-only-`));
+    const args = join(dir, "args");
+    fakeRuntime(dir, name);
+    const run = Bun.spawnSync([runner, "gate", "runtime-task"], {
+      cwd: root,
+      env: { ...process.env, PATH: dir, HOME: dir, JUSTSEND_RUNTIME_ARGS: args },
+    });
+    expect(run.exitCode).toBe(0);
+    expect(readFileSync(args, "utf8").trim()).toBe(`${join(root, "mcp", "contract.mjs")} gate runtime-task`);
+  });
+
+  test("an explicit runtime override is shared by the shell hook", () => {
+    const dir = mkdtempSync(join(tmpdir(), "justsend-runtime-override-"));
+    const args = join(dir, "args");
+    const runtime = fakeRuntime(dir, "custom-js");
+    const run = Bun.spawnSync(["bash", hook, "continuation"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        JUSTSEND_CONTRACT_RUNTIME: runtime,
+        JUSTSEND_RUNTIME_ARGS: args,
+      },
+    });
+    expect(run.exitCode).toBe(0);
+    expect(readFileSync(args, "utf8").trim()).toBe(`${join(root, "mcp", "contract.mjs")} continuation`);
+  });
+
+  test("the resolver itself reports a missing explicit runtime", () => {
+    const run = Bun.spawnSync([runner, "gate", "runtime-task"], {
+      cwd: root,
+      env: { ...process.env, JUSTSEND_CONTRACT_RUNTIME: "/missing/justsend-runtime" },
+    });
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr.toString()).toContain("cannot be executed");
+  });
+
+  test("the shell completion gate maps a missing runtime to deny", () => {
+    const run = Bun.spawnSync(["bash", hook, "gate", "runtime-task"], {
+      cwd: root,
+      env: { ...process.env, JUSTSEND_CONTRACT_RUNTIME: "/missing/justsend-runtime" },
+    });
+    expect(run.exitCode).toBe(2);
+    expect(run.stdout.toString()).toContain('"permissionDecision":"deny"');
+    expect(run.stderr.toString()).toContain("completion remains blocked");
+  });
+
+  test("the omp completion hook also blocks infrastructure failure", () => {
+    const previous = process.env.JUSTSEND_CONTRACT_RUNTIME;
+    process.env.JUSTSEND_CONTRACT_RUNTIME = "/missing/justsend-runtime";
+    try {
+      expect(guardComplete("runtime-task", root)).toMatchObject({ block: true });
+    } finally {
+      if (previous === undefined) delete process.env.JUSTSEND_CONTRACT_RUNTIME;
+      else process.env.JUSTSEND_CONTRACT_RUNTIME = previous;
+    }
+  });
+});
+
 describe("packaged authoring contract", () => {
   const root = join(import.meta.dir, "..");
 
-  test("ships one 0.8.0 plugin with the merged work skill", () => {
+  test("portable hooks close, abandon, and release the matching lifecycle", () => {
+    const manifest = JSON.parse(readFileSync(join(root, "hooks", "hooks.json"), "utf8"));
+    const post = manifest.hooks.PostToolUse as Array<{ matcher: string; hooks: Array<{ command: string }> }>;
+    const failed = manifest.hooks.PostToolUseFailure as Array<{
+      matcher: string;
+      hooks: Array<{ command: string }>;
+    }>;
+    expect(post.find((entry) => entry.matcher === "justsend_work_complete")?.hooks[0].command).toContain(" close ");
+    expect(post.find((entry) => entry.matcher === "justsend_work_retract")?.hooks[0].command).toContain(" abandon ");
+    expect(failed.find((entry) => entry.matcher === "justsend_work_complete")?.hooks[0].command).toContain(" release ");
+  });
+
+  test("ships one 0.9.0 plugin with the merged work skill", () => {
     const claude = JSON.parse(
       readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8"),
     );
@@ -147,9 +268,9 @@ describe("packaged authoring contract", () => {
     const marketplace = JSON.parse(
       readFileSync(join(root, "..", "..", ".claude-plugin", "marketplace.json"), "utf8"),
     );
-    expect(claude.version).toBe("0.8.0");
-    expect(codex.version).toBe("0.8.0");
-    expect(marketplace.metadata.version).toBe("0.8.0");
+    expect(claude.version).toBe("0.9.0");
+    expect(codex.version).toBe("0.9.0");
+    expect(marketplace.metadata.version).toBe("0.9.0");
     expect(readdirSync(join(root, "skills"), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)).toEqual(["justsend-work"]);

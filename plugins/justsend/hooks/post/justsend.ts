@@ -65,12 +65,20 @@ export function openRecords(cwd: string): string[] {
 }
 
 /** The completion gate, same state and same wording the Claude/Codex PreToolUse
- *  hook uses: exit 2 means a criterion is still unproven. */
+ *  hook uses. Only exit 0 permits completion; unproven state and infrastructure
+ *  failures both block, while advisory mode is resolved by contract.mjs as 0. */
 export function guardComplete(taskKey: string, cwd: string): HookResult {
   const result = run("contract.sh", ["gate", taskKey], undefined, cwd);
-  if (result.status !== 2) return undefined;
+  if (result.status === 0) return undefined;
   const reason = (result.stderr ?? "").trim();
-  return { block: true, reason: reason || "The JustSend contract still has unproven criteria." };
+  return {
+    block: true,
+    reason:
+      reason ||
+      (result.status === 2
+        ? "The JustSend contract still has unproven criteria."
+        : "The JustSend verification gate could not run; completion remains blocked."),
+  };
 }
 
 /** Active contract as text, for the status line and for compaction. */
@@ -170,15 +178,24 @@ export default function justsend(pi: HookAPILike): void {
 
   pi.on("tool_result", async (event, ctx) => {
     const verb = workVerb(String(event.toolName ?? ""));
-    if (!verb || event.isError) return;
+    if (!verb) return;
+    if (event.isError) {
+      if (verb === "work_complete") {
+        run("contract.sh", ["release", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
+      }
+      return;
+    }
     run(
       "record-state.sh",
       [],
       JSON.stringify({ tool_name: `justsend_${verb}`, tool_input: event.input ?? {} }),
       ctx.cwd,
     );
-    if (verb === "work_complete" || verb === "work_retract") {
+    if (verb === "work_complete") {
       run("contract.sh", ["close", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
+    }
+    if (verb === "work_retract") {
+      run("contract.sh", ["abandon", String(event.input?.task_key ?? "")], undefined, ctx.cwd);
     }
     // The blocker decision is made here rather than in the script because this
     // path passes the task_key as an argument and never hands the script a

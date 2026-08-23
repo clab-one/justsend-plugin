@@ -15,13 +15,20 @@ The plugin provides two components:
 
 The contract enforces the verification transitions: `GREEN` requires a
 captured `RED`, artifacts must exist, be non-empty, and remain under allowed
-roots, and completion reports any unproven criteria.
+roots, and completion reports any unproven criteria. Each capture is copied to
+a content-addressed, read-only snapshot that the plugin never overwrites, plus a
+SHA-256, size, and capture time. The digest is proof identity; this is integrity
+discipline inside the user's account, not protection from a malicious same-user
+process. The stdio server supports modern
+MCP `2026-07-28` (`server/discover` and per-request metadata) alongside explicit
+legacy initialize versions through `2025-11-25`; it never echoes an unsupported
+client version.
 
 ## Install
 
 Install the helper from the canonical guide:
 **https://justsend.cloud/install**. The app's **Settings → Agent access** screen
-links to this page. Plugin 0.8.0's card-authoring payload requires helper 1.3.0
+links to this page. Plugin 0.9.0's card-authoring payload requires helper 1.3.0
 or later; verify `justsend_health.server_version` before enabling the plugin.
 
 This README documents plugin installation and harness-specific helper
@@ -50,7 +57,11 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.8.0 requires JustSend MCP helper 1.3.0 or later, cleanly
+> **Version history:** 0.9.0 serializes concurrent contract writers, rejects
+> ambiguous task identities, snapshots evidence by SHA-256, moves strict/advisory
+> policy outside the agent tool schema, and supports MCP 2026-07-28 alongside
+> legacy initialize. It removes the agent `enforce` input and the internal
+> `saveContract` module export; callers use locked tool mutations instead. 0.8.0 requires JustSend MCP helper 1.3.0 or later, cleanly
 > separates record `title` and start `body`, and makes the structured brief plus
 > representative `image_path` explicit at record creation. Completion remains the
 > verified `summary` audit note. 0.7.0 launches the
@@ -246,16 +257,31 @@ hooks provide additional automation.
 
 | What | Where |
 |---|---|
-| Criteria and evidence | `<cwd>/.justsend/contract/<task_key>.json` |
+| Criteria and evidence receipts | `<cwd>/.justsend/contract/<task_key>.json` |
+| Immutable evidence bytes | `<cwd>/.justsend/evidence/sha256/<prefix>/<sha256>` |
+| Verification policy | `${XDG_CONFIG_HOME:-~/.config}/justsend-plugin/config.json` |
 | Open-record list | `${XDG_STATE_HOME:-~/.local/state}/justsend-plugin`, shared across harnesses on purpose — one person, one task, whichever client they are in. Override with `JUSTSEND_STATE_DIR` |
 
 Commit `.justsend/` to include the evidence trail in the review diff, or ignore
 it to keep working state out of history. Nothing in the plugin depends on this
-choice.
+choice. Contract writes are serialized per task and carry a monotonic revision,
+so concurrent Claude, Codex, and omp processes do not overwrite one another. A
+crashed writer can leave `<task_key>.lock`; the gate then fails closed with the
+owner metadata instead of guessing that the lock is stale. Remove that directory
+only after confirming its recorded process is gone. A successful completion gate
+also writes a 60-second revision lease: contract and evidence mutations are
+refused until the matching `close` consumes it. A failed omp completion releases
+it immediately; a crashed or older harness recovers when it expires.
 
-Use `justsend_work_note(blocker:true)` when a human must act, or
-`justsend_contract_set(enforce: false)` when work is tracked without a gate.
-Both choices remain visible in the record. The blocker note stamps `blocked_at`,
+Verification defaults to `strict`. A user can choose advisory mode outside the
+agent tool surface:
+
+```json
+{"verification":{"mode":"advisory"}}
+```
+
+An agent cannot change this policy through `justsend_contract_set`. Use
+`justsend_work_note(blocker:true)` when a human must act. The blocker note stamps `blocked_at`,
 which stands the completion gate and the Stop gate down without marking the work
 done — the next `justsend_evidence` clears it and re-arms, and
 `justsend_contract_status` keeps reporting a `Blocked since` line.
@@ -268,9 +294,10 @@ which carries evidence paths and per-criterion status the agent needs and a pers
 does not. The skill carries the rest: what the app renders, and what it prints as
 literal characters.
 
-Other hooks are advisory and exit 0 on doubt. The destructive-command guard and
-completion gate fail open when their own plumbing is missing (`node` or the
-script), so missing guard infrastructure does not block the harness.
+Other hooks are advisory and exit 0 on doubt. The verification server and every
+completion lifecycle command share `mcp/run.sh`; Bun, Node, and an explicit
+`JUSTSEND_CONTRACT_RUNTIME` therefore resolve identically. Missing verification
+plumbing fails loudly rather than turning an absent gate into permission.
 
 ## Development
 

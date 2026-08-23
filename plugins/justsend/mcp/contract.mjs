@@ -18,31 +18,115 @@
 //   <subcommand>   -> the hooks' view of the same state (gate/close/summary/...)
 
 import {
+  chmodSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   realpathSync,
   renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
 const STATE_DIR = join(".justsend", "contract");
+const EVIDENCE_DIR = join(".justsend", "evidence", "sha256");
+const TASK_KEY = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/;
+const MODERN_PROTOCOLS = ["2026-07-28"];
+const LEGACY_PROTOCOLS = ["2025-11-25", "2025-06-18", "2024-11-05"];
+function pluginVersion() {
+  try {
+    const manifest = JSON.parse(
+      readFileSync(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8"),
+    );
+    return typeof manifest.version === "string" ? manifest.version : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+const SERVER_INFO = { name: "justsend-contract", version: pluginVersion() };
+const LOCK_WAIT_MS = 5_000;
+const COMPLETION_LEASE_MS = 60_000;
+const sleepCell = new Int32Array(new SharedArrayBuffer(4));
 /** Open but stable: the word lands in the record title, so it is a fold key for a
  *  saved search, not decoration. `change` is the fallback, never a choice. */
 const RECORD_TYPES = ["fix", "feature", "investigation", "migration", "method", "review"];
-const UNSAFE = /[^a-zA-Z0-9._-]+/g;
+
+function validateTaskKey(taskKey) {
+  if (typeof taskKey !== "string" || !TASK_KEY.test(taskKey) || taskKey === "." || taskKey === "..") {
+    throw new Error(
+      "Invalid task_key. Use 1-64 lowercase characters: letters, digits, dot, underscore, or hyphen; start and end with a letter or digit.",
+    );
+  }
+  return taskKey;
+}
 
 const contractDir = (cwd) => join(cwd, STATE_DIR);
-const contractPath = (cwd, taskKey) => join(contractDir(cwd), `${taskKey.replace(UNSAFE, "-")}.json`);
+const contractPath = (cwd, taskKey) => join(contractDir(cwd), `${validateTaskKey(taskKey)}.json`);
+const lockPath = (cwd, taskKey) => join(contractDir(cwd), `${validateTaskKey(taskKey)}.lock`);
+
+function withContractLock(cwd, taskKey, action) {
+  validateTaskKey(taskKey);
+  mkdirSync(contractDir(cwd), { recursive: true });
+  const path = lockPath(cwd, taskKey);
+  const token = randomUUID();
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      mkdirSync(path);
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      // Never delete another process's lock automatically. PID reuse and two
+      // simultaneous reclaimers can both make a stale-looking lock live again;
+      // bounded failure is safer than granting the same task to two writers.
+      if (Date.now() >= deadline) {
+        let owner = "owner metadata unavailable";
+        try {
+          owner = readFileSync(join(path, "owner.json"), "utf8").trim();
+        } catch {
+          // The path itself still proves contention; do not guess that it is stale.
+        }
+        throw new Error(`Timed out waiting for contract lock "${taskKey}" at ${path}: ${owner}`);
+      }
+      Atomics.wait(sleepCell, 0, 0, 10);
+      continue;
+    }
+    try {
+      writeFileSync(
+        join(path, "owner.json"),
+        `${JSON.stringify({ pid: process.pid, token, created_at: new Date().toISOString() })}\n`,
+        { flag: "wx" },
+      );
+      break;
+    } catch (error) {
+      rmSync(path, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  try {
+    return action();
+  } finally {
+    try {
+      const owner = JSON.parse(readFileSync(join(path, "owner.json"), "utf8"));
+      if (owner.token === token) rmSync(path, { recursive: true, force: true });
+    } catch {
+      // Never remove a lock whose ownership cannot be proven.
+    }
+  }
+}
 
 function loadContract(cwd, taskKey) {
+  const path = contractPath(cwd, taskKey);
   try {
-    return JSON.parse(readFileSync(contractPath(cwd, taskKey), "utf8"));
-  } catch {
-    return undefined;
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw new Error(`Cannot read contract "${taskKey}": ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -65,21 +149,51 @@ function listContracts(cwd) {
   return out.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
 }
 
-/** Atomic write: temp file plus rename, so a killed process never leaves a half-written contract. */
+/** Atomic commit. Production read-modify-write callers hold the task lock. */
 function saveContract(cwd, contract) {
+  contract.verification_mode = verificationMode();
+  contract.revision = (Number.isSafeInteger(contract.revision) ? contract.revision : 0) + 1;
   contract.updated_at = new Date().toISOString();
   const path = contractPath(cwd, contract.task_key);
   mkdirSync(contractDir(cwd), { recursive: true });
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(contract, null, 2)}\n`);
+  const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(contract, null, 2)}\n`, { flag: "wx" });
   renameSync(tmp, path);
+}
+
+function mutateContract(cwd, taskKey, action) {
+  return withContractLock(cwd, taskKey, () => {
+    const current = loadContract(cwd, taskKey);
+    const next = action(current);
+    if (next) saveContract(cwd, next);
+    return next;
+  });
+}
+
+function activeCompletionLease(contract) {
+  const lease = contract?.completion_lease;
+  if (!lease || !Number.isSafeInteger(lease.revision) || typeof lease.expires_at !== "string") {
+    return undefined;
+  }
+  return Date.parse(lease.expires_at) > Date.now() ? lease : undefined;
+}
+
+function assertNoCompletionLease(contract) {
+  const lease = activeCompletionLease(contract);
+  if (lease) {
+    throw new Error(
+      `Completion is in progress for "${contract.task_key}" at revision ${lease.revision}; retry after ${lease.expires_at}.`,
+    );
+  }
+  delete contract.completion_lease;
 }
 
 function newContract(taskKey, objective, tier) {
   const now = new Date().toISOString();
   return {
-    version: 1,
-    task_key: taskKey,
+    version: 2,
+    revision: 0,
+    task_key: validateTaskKey(taskKey),
     objective,
     tier,
     criteria: [],
@@ -143,6 +257,69 @@ function validateArtifact(cwd, artifactPath) {
   return real;
 }
 
+function snapshotDirectory(cwd, prefix) {
+  let current = realpathSync(cwd);
+  for (const component of [".justsend", "evidence", "sha256", prefix]) {
+    current = join(current, component);
+    try {
+      mkdirSync(current);
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+    }
+    const entry = lstatSync(current);
+    if (entry.isSymbolicLink() || !entry.isDirectory()) {
+      throw new Error(`Evidence snapshot directory is not a real directory: ${current}`);
+    }
+  }
+  return current;
+}
+
+function captureArtifact(cwd, artifactPath) {
+  const sourcePath = validateArtifact(cwd, artifactPath);
+  const before = statSync(sourcePath);
+  const bytes = readFileSync(sourcePath);
+  const after = statSync(sourcePath);
+  if (
+    before.dev !== after.dev ||
+    before.ino !== after.ino ||
+    before.size !== after.size ||
+    before.mtimeMs !== after.mtimeMs
+  ) {
+    throw new Error(`Evidence artifact changed while it was being captured: ${sourcePath}`);
+  }
+
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const relativeSnapshot = join(EVIDENCE_DIR, sha256.slice(0, 2), sha256);
+  const snapshotPath = join(snapshotDirectory(cwd, sha256.slice(0, 2)), sha256);
+  try {
+    writeFileSync(snapshotPath, bytes, { flag: "wx", mode: 0o444 });
+    chmodSync(snapshotPath, 0o444);
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    const entry = lstatSync(snapshotPath);
+    if (entry.isSymbolicLink() || !entry.isFile()) {
+      throw new Error(`Evidence snapshot is not a real file: ${snapshotPath}`);
+    }
+    const existing = readFileSync(snapshotPath);
+    const existingHash = createHash("sha256").update(existing).digest("hex");
+    if (existing.length !== bytes.length || existingHash !== sha256) {
+      throw new Error(`Evidence snapshot collision or corruption: ${snapshotPath}`);
+    }
+  }
+
+  const capturedAt = new Date().toISOString();
+  return {
+    sha256,
+    size: bytes.length,
+    captured_at: capturedAt,
+    source_path: sourcePath,
+    snapshot_path: relativeSnapshot,
+    // v1 aliases keep old report/readers useful during the clean storage upgrade.
+    at: capturedAt,
+    path: relativeSnapshot,
+  };
+}
+
 /**
  * Apply evidence and enforce the transitions:
  *   red     — only from pending or red (a re-capture is fine)
@@ -156,11 +333,13 @@ function applyEvidence(contract, criterionId, input) {
     const known = contract.criteria.map((c) => c.id).join(", ") || "(none)";
     throw new Error(`Criterion "${criterionId}" is not in this contract. Registered ids: ${known}`);
   }
-  const evidence = { at: new Date().toISOString(), path: input.path, note: input.note };
+  const evidence = { at: new Date().toISOString(), ...(input.receipt ?? {}), note: input.note };
 
   switch (input.kind) {
     case "cleanup":
-      if (!input.note && !input.path) throw new Error("A cleanup receipt needs a note or a path.");
+      if (!input.note && !input.receipt) {
+        throw new Error("A cleanup receipt needs a note or an artifact.");
+      }
       criterion.cleanup_receipts.push(evidence);
       return criterion;
     case "red":
@@ -195,17 +374,21 @@ function applyEvidence(contract, criterionId, input) {
 }
 
 function summarize(contract) {
+  const where = (evidence) => evidence.source_path ?? evidence.path ?? "note";
   const lines = [`Contract ${contract.task_key} [${contract.tier}]: ${contract.objective}`];
   for (const c of contract.criteria) {
     const ev = [
-      c.evidence.red ? `RED:${c.evidence.red.path ?? "note"}` : undefined,
-      c.evidence.green ? `GREEN:${c.evidence.green.path ?? "note"}` : undefined,
-      c.evidence.surface ? `SURFACE:${c.evidence.surface.path ?? "note"}` : undefined,
+      c.evidence.red ? `RED:${where(c.evidence.red)}` : undefined,
+      c.evidence.green ? `GREEN:${where(c.evidence.green)}` : undefined,
+      c.evidence.surface ? `SURFACE:${where(c.evidence.surface)}` : undefined,
       c.cleanup_receipts.length > 0 ? `receipts:${c.cleanup_receipts.length}` : undefined,
     ]
       .filter(Boolean)
       .join(" ");
     lines.push(`- [${c.status}] ${c.id}: ${c.scenario} -> ${c.observable}${ev ? ` (${ev})` : ""}`);
+  }
+  if (contract.verification_mode === "advisory") {
+    lines.push("Verification mode: advisory — unproven criteria do not block completion.");
   }
   const open = unproven(contract);
   lines.push(
@@ -277,7 +460,13 @@ function report(contract) {
   // the agent supplies one in the reader's language.
   // The header cells are empty on purpose: a delimiter row is what makes this a
   // GFM table rather than a paragraph, and empty cells carry no word to translate.
-  const lines = [`${contract.type ?? "change"}: ${subject}`, "", "|  |  |  |", "|---|---|---|"];
+  const lines = [
+    `${contract.type ?? "change"}: ${subject}`,
+    ...(contract.verification_mode === "advisory" ? ["", "⚠️ advisory"] : []),
+    "",
+    "|  |  |  |",
+    "|---|---|---|",
+  ];
   for (const c of contract.criteria) {
     lines.push(`| ${c.id} | ${c.status === "surfaced" ? "✅" : "—"} | ${cell(c.observable)} |`);
   }
@@ -298,6 +487,16 @@ const activeContract = (cwd) => {
   return open.find((c) => !c.blocked_at) ?? open[0];
 };
 
+function verificationMode() {
+  const base = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+  try {
+    const config = JSON.parse(readFileSync(join(base, "justsend-plugin", "config.json"), "utf8"));
+    return config?.verification?.mode === "advisory" ? "advisory" : "strict";
+  } catch {
+    return "strict";
+  }
+}
+
 /** Locked only while the contract is live, still has something unproven, and the
  *  gate was not explicitly disarmed. Keyed off the unproven list rather than
  *  isDone() so a contract with no criteria at all cannot lock on an empty
@@ -307,7 +506,7 @@ const activeContract = (cwd) => {
  *  a human is not a task the agent can prove, so holding the turn open would
  *  only loop. The next piece of evidence clears the stamp and re-arms. */
 function gateReason(contract) {
-  if (!contract || contract.enforce === false || contract.closed_at || contract.blocked_at) return undefined;
+  if (!contract || verificationMode() === "advisory" || contract.closed_at || contract.blocked_at) return undefined;
   const open = unproven(contract);
   if (open.length === 0) return undefined;
   return (
@@ -341,7 +540,7 @@ const TOOLS = [
   {
     name: "justsend_contract_set",
     description:
-      "Register or update the verification contract for a task_key: success criteria written to .justsend/contract/<task_key>.json, criteria upserted by id with existing evidence preserved. Arms the completion gate unless enforce is false. Use the same task_key as the work record, then justsend_evidence to prove, justsend_contract_status to check, justsend_work_complete to close.",
+      "Register or update the verification contract for a task_key: success criteria written to .justsend/contract/<task_key>.json, criteria upserted by id with existing evidence preserved. Completion policy is user-owned config, not a tool argument. Use the same task_key as the work record, then justsend_evidence to prove, justsend_contract_status to check, justsend_work_complete to close.",
     inputSchema: {
       type: "object",
       properties: {
@@ -355,10 +554,6 @@ const TOOLS = [
             "What kind of record this is. Becomes the first word of the record title, where a saved search can fold on it. Omitted reads as \"change\".",
         },
         criteria: { type: "array", minItems: 1, items: CRITERION_SCHEMA },
-        enforce: {
-          type: "boolean",
-          description: "Default true: unproven criteria block justsend_work_complete. False tracks without gating.",
-        },
       },
       required: ["task_key", "objective", "tier", "criteria"],
       additionalProperties: false,
@@ -402,36 +597,62 @@ const TOOLS = [
 
 function callTool(cwd, name, args) {
   if (name === "justsend_contract_set") {
-    const contract = loadContract(cwd, args.task_key) ?? newContract(args.task_key, args.objective, args.tier);
+    validateTaskKey(args.task_key);
+    if (Object.hasOwn(args, "enforce") || Object.hasOwn(args, "mode")) {
+      throw new Error(
+        "Verification mode is user-owned. Set verification.mode in ~/.config/justsend-plugin/config.json.",
+      );
+    }
     if (args.type !== undefined && !RECORD_TYPES.includes(args.type)) {
       throw new Error(`Unknown record type "${args.type}". Use one of: ${RECORD_TYPES.join(", ")}`);
     }
-    contract.objective = args.objective;
-    contract.tier = args.tier;
-    if (args.type !== undefined) contract.type = args.type;
-    contract.enforce = args.enforce ?? true;
-    // Re-registering resumes: unclose, unblock, and re-arm the gate.
-    delete contract.closed_at;
-    delete contract.blocked_at;
-    upsertCriteria(contract, args.criteria);
-    saveContract(cwd, contract);
+    const contract = mutateContract(cwd, args.task_key, (current) => {
+      if (current) assertNoCompletionLease(current);
+      const next = current ?? newContract(args.task_key, args.objective, args.tier);
+      next.version = 2;
+      next.objective = args.objective;
+      next.tier = args.tier;
+      if (args.type !== undefined) next.type = args.type;
+      delete next.enforce;
+      // Re-registering resumes: unclose, unblock, and re-arm the gate.
+      delete next.closed_at;
+      delete next.blocked_at;
+      upsertCriteria(next, args.criteria);
+      return next;
+    });
     return `${summarize(contract)}\nContract stored at ${contractPath(cwd, contract.task_key)}`;
   }
 
   if (name === "justsend_evidence") {
-    const contract = loadContract(cwd, args.task_key);
-    if (!contract) throw new Error(`No contract "${args.task_key}" — call justsend_contract_set first.`);
-    let realPath;
-    if (args.artifact_path) {
-      realPath = validateArtifact(cwd, args.artifact_path);
-    } else if (args.kind !== "cleanup") {
+    validateTaskKey(args.task_key);
+    if (!loadContract(cwd, args.task_key)) {
+      throw new Error(`No contract "${args.task_key}" — call justsend_contract_set first.`);
+    }
+    if (!args.artifact_path && args.kind !== "cleanup") {
       throw new Error(`${args.kind} evidence requires artifact_path — capture the output to a file and pass that path.`);
     }
-    const criterion = applyEvidence(contract, args.criterion_id, { kind: args.kind, path: realPath, note: args.note });
-    // Evidence means the agent is working again, so a human-blocked stamp is
-    // stale: re-arm rather than leave the gate open for the rest of the task.
-    delete contract.blocked_at;
-    saveContract(cwd, contract);
+    const contract = mutateContract(cwd, args.task_key, (current) => {
+      if (!current) throw new Error(`No contract "${args.task_key}" — call justsend_contract_set first.`);
+      assertNoCompletionLease(current);
+      // Validate the id and transition before creating a permanent snapshot.
+      applyEvidence(structuredClone(current), args.criterion_id, {
+        kind: args.kind,
+        receipt: args.artifact_path ? {} : undefined,
+        note: args.note,
+      });
+      const receipt = args.artifact_path ? captureArtifact(cwd, args.artifact_path) : undefined;
+      applyEvidence(current, args.criterion_id, {
+        kind: args.kind,
+        receipt,
+        note: args.note,
+      });
+      // Evidence means the agent is working again, so a human-blocked stamp is
+      // stale: re-arm rather than leave the gate open for the rest of the task.
+      delete current.blocked_at;
+      current.version = 2;
+      return current;
+    });
+    const criterion = contract.criteria.find((entry) => entry.id === args.criterion_id);
     const open = unproven(contract);
     const remaining =
       open.length === 0
@@ -462,7 +683,41 @@ function callTool(cwd, name, args) {
 function serve() {
   const cwd = process.cwd();
   const send = (msg) => process.stdout.write(`${JSON.stringify(msg)}\n`);
+  const serverMeta = { "io.modelcontextprotocol/serverInfo": SERVER_INFO };
   let buf = "";
+
+  const sendError = (id, code, message, data) => {
+    const error = data === undefined ? { code, message } : { code, message, data };
+    send({ jsonrpc: "2.0", id, error });
+  };
+  const modernResult = (result, cacheable = false) => ({
+    ...result,
+    resultType: "complete",
+    ...(cacheable ? { ttlMs: 0, cacheScope: "private" } : {}),
+    _meta: serverMeta,
+  });
+
+  function modernMetadata(req) {
+    const meta = req.params?._meta;
+    const protocolVersion = meta?.["io.modelcontextprotocol/protocolVersion"];
+    const clientCapabilities = meta?.["io.modelcontextprotocol/clientCapabilities"];
+    if (typeof protocolVersion !== "string" || !clientCapabilities || typeof clientCapabilities !== "object") {
+      sendError(
+        req.id,
+        -32602,
+        "Modern MCP requests require protocolVersion and clientCapabilities in params._meta.",
+      );
+      return undefined;
+    }
+    if (!MODERN_PROTOCOLS.includes(protocolVersion)) {
+      sendError(req.id, -32022, "Unsupported protocol version", {
+        supported: MODERN_PROTOCOLS,
+        requested: protocolVersion,
+      });
+      return undefined;
+    }
+    return true;
+  }
 
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => {
@@ -476,6 +731,7 @@ function serve() {
       try {
         req = JSON.parse(line);
       } catch {
+        sendError(null, -32700, "Parse error");
         continue;
       }
       dispatch(req);
@@ -484,40 +740,63 @@ function serve() {
 
   function dispatch(req) {
     const { id, method, params } = req;
+    if (method?.startsWith("notifications/")) return;
+
     if (method === "initialize") {
+      const requested = params?.protocolVersion;
+      const protocolVersion = LEGACY_PROTOCOLS.includes(requested) ? requested : LEGACY_PROTOCOLS[0];
       send({
         jsonrpc: "2.0",
         id,
-        result: {
-          protocolVersion: params?.protocolVersion ?? "2024-11-05",
-          capabilities: { tools: {} },
-          serverInfo: { name: "justsend-contract", version: "0.2.0" },
-        },
+        result: { protocolVersion, capabilities: { tools: {} }, serverInfo: SERVER_INFO },
+      });
+      return;
+    }
+
+    const meta = params?._meta;
+    const looksModern =
+      method === "server/discover" ||
+      Boolean(
+        meta &&
+          (Object.hasOwn(meta, "io.modelcontextprotocol/protocolVersion") ||
+            Object.hasOwn(meta, "io.modelcontextprotocol/clientCapabilities")),
+      );
+    if (looksModern && !modernMetadata(req)) return;
+
+    if (method === "server/discover") {
+      send({
+        jsonrpc: "2.0",
+        id,
+        result: modernResult(
+          { supportedVersions: MODERN_PROTOCOLS, capabilities: { tools: {} } },
+          true,
+        ),
       });
       return;
     }
     if (method === "tools/list") {
-      send({ jsonrpc: "2.0", id, result: { tools: TOOLS } });
+      const result = looksModern ? modernResult({ tools: TOOLS }, true) : { tools: TOOLS };
+      send({ jsonrpc: "2.0", id, result });
       return;
     }
     if (method === "tools/call") {
       try {
         const text = callTool(cwd, params?.name, params?.arguments ?? {});
-        send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text }] } });
+        const result = { content: [{ type: "text", text }] };
+        send({ jsonrpc: "2.0", id, result: looksModern ? modernResult(result) : result });
       } catch (err) {
         // A refused transition is information the model must act on, so it comes
         // back as tool output rather than a protocol error.
-        send({
-          jsonrpc: "2.0",
-          id,
-          result: { content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }], isError: true },
-        });
+        const result = {
+          content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }],
+          isError: true,
+        };
+        send({ jsonrpc: "2.0", id, result: looksModern ? modernResult(result) : result });
       }
       return;
     }
-    if (method?.startsWith("notifications/")) return;
     if (id !== undefined) {
-      send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
+      sendError(id, -32601, `Method not found: ${method}`);
     }
   }
 }
@@ -530,12 +809,7 @@ function cli(argv) {
   const cwd = process.env.JUSTSEND_HOOK_CWD || process.cwd();
   const [cmd, arg] = argv;
 
-  if (cmd === "gate") {
-    // PreToolUse on justsend_work_complete. Exit 2 blocks, matching
-    // destructive-guard.sh; anything else lets the call through.
-    const contract = arg ? loadContract(cwd, arg) : activeContract(cwd);
-    const reason = gateReason(contract);
-    if (!reason) return 0;
+  const denyGate = (reason) => {
     process.stdout.write(
       `${JSON.stringify({
         hookSpecificOutput: {
@@ -547,13 +821,100 @@ function cli(argv) {
     );
     process.stderr.write(`${reason}\n`);
     return 2;
+  };
+
+  if (cmd === "gate") {
+    // The lease closes the pre-tool/post-tool race: while completion is in
+    // flight, every contract/evidence mutation is refused, and close consumes
+    // only the exact revision gate approved. A crash recovers by expiry.
+    const validArg = Boolean(arg && TASK_KEY.test(arg) && arg !== "." && arg !== "..");
+    const key = validArg ? arg : activeContract(cwd)?.task_key;
+    if (!key) return 0;
+    const reason = withContractLock(cwd, key, () => {
+      const contract = loadContract(cwd, key);
+      if (!contract) return undefined;
+      const lease = activeCompletionLease(contract);
+      if (lease) {
+        return `Completion is already in progress for "${key}" at revision ${lease.revision}.`;
+      }
+      const hadExpiredLease = Boolean(contract.completion_lease);
+      delete contract.completion_lease;
+      const blocked = gateReason(contract);
+      if (blocked) {
+        if (hadExpiredLease) saveContract(cwd, contract);
+        return blocked;
+      }
+      if (
+        validArg &&
+        key === arg &&
+        verificationMode() === "strict" &&
+        !contract.blocked_at &&
+        isDone(contract) &&
+        !contract.closed_at
+      ) {
+        const revision = (Number.isSafeInteger(contract.revision) ? contract.revision : 0) + 1;
+        contract.completion_lease = {
+          revision,
+          expires_at: new Date(Date.now() + COMPLETION_LEASE_MS).toISOString(),
+        };
+        saveContract(cwd, contract);
+      }
+      return undefined;
+    });
+    return reason ? denyGate(reason) : 0;
   }
 
   if (cmd === "close") {
-    const contract = arg ? loadContract(cwd, arg) : undefined;
-    if (contract && !contract.closed_at) {
+    if (!arg) return 0;
+    let refusal;
+    withContractLock(cwd, arg, () => {
+      const contract = loadContract(cwd, arg);
+      if (!contract || contract.closed_at) return;
+      const lease = activeCompletionLease(contract);
+      if (!lease || lease.revision !== contract.revision) {
+        delete contract.completion_lease;
+        // Advisory, human-blocked, empty, and already-proven contracts all have
+        // an open gate without a strict lease. Re-evaluate the latest revision:
+        // only a state the gate would still allow may close.
+        if (!gateReason(contract)) {
+          contract.closed_at = new Date().toISOString();
+          saveContract(cwd, contract);
+          return;
+        }
+        saveContract(cwd, contract);
+        refusal = `Completion lease is missing, expired, or stale for "${arg}"; contract remains open.`;
+        return;
+      }
+      delete contract.completion_lease;
       contract.closed_at = new Date().toISOString();
       saveContract(cwd, contract);
+    });
+    if (refusal) {
+      process.stderr.write(`${refusal}\n`);
+      return 2;
+    }
+    return 0;
+  }
+
+  if (cmd === "release") {
+    if (arg) {
+      mutateContract(cwd, arg, (contract) => {
+        if (!contract || !contract.completion_lease) return undefined;
+        delete contract.completion_lease;
+        return contract;
+      });
+    }
+    return 0;
+  }
+
+  if (cmd === "abandon") {
+    if (arg) {
+      mutateContract(cwd, arg, (contract) => {
+        if (!contract || contract.closed_at) return undefined;
+        delete contract.completion_lease;
+        contract.closed_at = new Date().toISOString();
+        return contract;
+      });
     }
     return 0;
   }
@@ -562,10 +923,15 @@ function cli(argv) {
     // PostToolUse on a `justsend_work_note` that carries `blocker: true`. The
     // first stamp is the one that counts: re-blocking must not reset the clock
     // that tells the user how long this has been waiting on them.
-    const contract = arg ? loadContract(cwd, arg) : undefined;
-    if (contract && !contract.blocked_at) {
-      contract.blocked_at = new Date().toISOString();
-      saveContract(cwd, contract);
+    if (arg) {
+      mutateContract(cwd, arg, (contract) => {
+        if (!contract || contract.blocked_at) return undefined;
+        // A human blocker supersedes an in-flight completion. Invalidate its
+        // lease atomically so the later close cannot seal this blocked contract.
+        delete contract.completion_lease;
+        contract.blocked_at = new Date().toISOString();
+        return contract;
+      });
     }
     return 0;
   }
@@ -594,7 +960,7 @@ function cli(argv) {
     return 0;
   }
 
-  process.stderr.write("usage: contract.mjs [gate|close|block|summary|continuation|line] [task_key]\n");
+  process.stderr.write("usage: contract.mjs [gate|close|release|abandon|block|summary|continuation|line] [task_key]\n");
   return 1;
 }
 
@@ -606,13 +972,20 @@ if (entry.endsWith("contract.mjs")) {
   if (argv.length === 0) {
     serve();
   } else {
-    process.exit(cli(argv));
+    try {
+      process.exit(cli(argv));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`justsend contract: ${message}\n`);
+      process.exit(argv[0] === "gate" || argv[0] === "continuation" ? 2 : 1);
+    }
   }
 }
 
 export {
+  LEGACY_PROTOCOLS,
+  MODERN_PROTOCOLS,
   TOOLS,
-  applyEvidence,
   callTool,
   contractPath,
   gateReason,
@@ -621,9 +994,10 @@ export {
   loadContract,
   newContract,
   report,
-  saveContract,
   summarize,
   unproven,
   upsertCriteria,
   validateArtifact,
+  validateTaskKey,
+  verificationMode,
 };

@@ -72,21 +72,21 @@ is still open. The structured start body remains the readable brief; do not past
 raw logs into it. The tool re-checks the contract and refuses while anything is
 unproven.
 
-Two honest ways past a gate you genuinely cannot satisfy, both of which say so out
-loud:
+There is one honest agent path past a strict gate it genuinely cannot satisfy:
+`justsend_work_note(blocker: true)` when a human has to act. It stamps
+`blocked_at`, stands the completion gate and Stop hook down, and drops the record
+from the open-record reminder. It is not a close: the next `justsend_evidence`
+clears it and re-arms, and `justsend_contract_status` keeps reporting the
+contract with a `Blocked since` line. Say what is needed.
 
-- `justsend_work_note(blocker: true)` when a human has to act — stamps
-  `blocked_at`, which stands the completion gate and the Stop hook down and drops
-  the record from the open-record reminder. It is not a close: the next
-  `justsend_evidence` clears it and re-arms, and `justsend_contract_status` keeps
-  reporting the contract with a `Blocked since` line. Say what is needed.
-- `justsend_contract_set(enforce: false)` when the work is tracked rather than
-  gated. State that you did it and why.
+Strict versus advisory is a user-owned policy in
+`~/.config/justsend-plugin/config.json`, outside the contract tool schema. Never
+edit or ask a tool to edit that policy to finish your own task.
 
-`justsend_work_status(task_key, "backlog")` is not a third way out. It files the
+`justsend_work_status(task_key, "backlog")` is not a second way out. It files the
 record for later without writing a note, which is the right call when the user
 defers the work — but it closes nothing, proves nothing, and leaves the gate
-exactly where it was. Reaching for it instead of one of the two exits above turns
+exactly where it was. Reaching for it instead of the blocker note above turns
 an unfinished task into a silently parked one.
 
 Never weaken a criterion after the fact to make a gate pass, and never claim an

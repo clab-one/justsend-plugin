@@ -36,11 +36,20 @@
         ]
       },
       {
-        "matcher": "justsend_work_complete|justsend_work_retract",
+        "matcher": "justsend_work_complete",
         "hooks": [
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" close 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "justsend_work_retract",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" abandon 2>/dev/null || true"
           }
         ]
       },
@@ -50,6 +59,17 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" block 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "justsend_work_complete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/contract.sh\" release 2>/dev/null || true"
           }
         ]
       }

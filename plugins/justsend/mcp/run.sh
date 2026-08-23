@@ -10,9 +10,10 @@
 # (measured 2026-08-21 - the substring `user_config` does not occur anywhere in
 # the omp binary). A path this script computes at runtime has no such limit.
 #
-# `exec "$runtime" "$server"` deliberately omits a subcommand: `bun <file>` and
-# `node <file>` both run a file, but `node run <file>` does not (measured
-# 2026-08-21), so a `run` here would break the override below on node.
+# The optional arguments are contract.mjs subcommands, not runtime commands:
+# `run.sh gate alpha` becomes `bun contract.mjs gate alpha` or the exact same
+# node invocation. One resolver therefore owns both the stdio server and every
+# lifecycle gate; a machine cannot run MCP while silently skipping its gate.
 set -eu
 
 # Parameter expansion, not `dirname`: with a PATH that cannot find `dirname`,
@@ -55,4 +56,4 @@ fi
   exit 1
 }
 
-exec "$runtime" "$server"
+exec "$runtime" "$server" "$@"

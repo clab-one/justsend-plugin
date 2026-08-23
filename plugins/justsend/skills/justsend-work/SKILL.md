@@ -108,7 +108,9 @@ green test suite means a unit-level contract holds; it never proves the
 user-facing behavior works. Five things enforce this in code, so write the
 contract expecting to be held to it:
 
-- `justsend_evidence` refuses GREEN with no captured RED.
+- `justsend_evidence` refuses GREEN with no captured RED. Each accepted artifact is
+  copied to a content-addressed, read-only SHA-256 snapshot the plugin never
+  overwrites; its original path is context, not the proof identity.
 - A `PreToolUse` hook refuses `justsend_work_complete` while a criterion is
   unproven, and names which ones.
 - The `Stop` hook refuses a quiet end of turn for the same reason.

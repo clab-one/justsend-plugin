@@ -4,12 +4,21 @@
 // not produce, and no completion while a criterion is unproven.
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 // @ts-expect-error — plain .mjs shipped to node, no type declarations by design.
-import { TOOLS, callTool, gateReason, loadContract, validateArtifact } from "../mcp/contract.mjs";
+import {
+  LEGACY_PROTOCOLS,
+  MODERN_PROTOCOLS,
+  TOOLS,
+  callTool,
+  contractPath,
+  gateReason,
+  loadContract,
+  validateArtifact,
+} from "../mcp/contract.mjs";
 
 function workspace(): string {
   return mkdtempSync(join(tmpdir(), "js-contract-"));
@@ -45,6 +54,7 @@ describe("failing-first transitions", () => {
         artifact_path: artifact(cwd),
       }),
     ).toThrow(/Failing-first violation/);
+    expect(existsSync(join(cwd, ".justsend", "evidence"))).toBe(false);
   });
 
   test("RED then GREEN then SURFACE walks to surfaced", () => {
@@ -134,6 +144,7 @@ describe("evidence artifacts", () => {
         note: "removed the probe server",
       }),
     ).not.toThrow();
+    expect(loadContract(cwd, "t").criteria[0].cleanup_receipts[0].at).toBeString();
   });
 
   test("an empty file is not evidence", () => {
@@ -210,6 +221,104 @@ describe("evidence artifacts", () => {
       }),
     ).toThrow(/Registered ids: c1/);
   });
+
+  test("captures immutable bytes and a complete receipt", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const source = artifact(cwd, "mutable.log", "before\n");
+    callTool(cwd, "justsend_evidence", {
+      task_key: "t",
+      criterion_id: "c1",
+      kind: "red",
+      artifact_path: source,
+    });
+    const receipt = loadContract(cwd, "t").criteria[0].evidence.red;
+    expect(receipt.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(receipt.size).toBe(7);
+    expect(receipt.captured_at).toBeString();
+    expect(receipt.source_path).toBe(realpathSync(source));
+    expect(receipt.snapshot_path).toBe(`.justsend/evidence/sha256/${receipt.sha256.slice(0, 2)}/${receipt.sha256}`);
+    expect(callTool(cwd, "justsend_contract_status", { task_key: "t" })).toContain(realpathSync(source));
+    writeFileSync(source, "after\n");
+    expect(readFileSync(join(cwd, receipt.snapshot_path), "utf8")).toBe("before\n");
+    rmSync(source);
+    expect(readFileSync(join(cwd, receipt.snapshot_path), "utf8")).toBe("before\n");
+  });
+
+  test("deduplicates the same evidence bytes from different paths", () => {
+    const cwd = workspace();
+    contracted(cwd, {
+      criteria: [
+        { id: "c1", scenario: "first", observable: "first" },
+        { id: "c2", scenario: "second", observable: "second" },
+      ],
+    });
+    for (const [criterion, name] of [["c1", "one.log"], ["c2", "two.log"]] as const) {
+      callTool(cwd, "justsend_evidence", {
+        task_key: "t",
+        criterion_id: criterion,
+        kind: "red",
+        artifact_path: artifact(cwd, name, "same bytes\n"),
+      });
+    }
+    const stored = loadContract(cwd, "t") as unknown as {
+      criteria: Array<{ evidence: { red: { sha256: string; snapshot_path: string } } }>;
+    };
+    const [first, second] = stored.criteria.map((entry) => entry.evidence.red);
+    expect(first.sha256).toBe(second.sha256);
+    expect(first.snapshot_path).toBe(second.snapshot_path);
+  });
+
+  test("refuses a symlink substituted for an existing snapshot", () => {
+    const cwd = workspace();
+    contracted(cwd, {
+      criteria: [
+        { id: "c1", scenario: "first", observable: "first" },
+        { id: "c2", scenario: "second", observable: "second" },
+      ],
+    });
+    const first = artifact(cwd, "first.log", "same bytes\n");
+    callTool(cwd, "justsend_evidence", {
+      task_key: "t", criterion_id: "c1", kind: "red", artifact_path: first,
+    });
+    const receipt = loadContract(cwd, "t").criteria[0].evidence.red;
+    const snapshot = join(cwd, receipt.snapshot_path);
+    rmSync(snapshot);
+    symlinkSync(first, snapshot);
+    expect(() =>
+      callTool(cwd, "justsend_evidence", {
+        task_key: "t",
+        criterion_id: "c2",
+        kind: "red",
+        artifact_path: artifact(cwd, "second.log", "same bytes\n"),
+      }),
+    ).toThrow(/not a real file/);
+  });
+});
+
+describe("task identity", () => {
+  test("keeps valid keys canonical and rejects collision-prone identities", () => {
+    const cwd = workspace();
+    for (const key of ["a", "a.b_c-d", "a".repeat(64)]) {
+      expect(contractPath(cwd, key)).toEndWith(`${key}.json`);
+    }
+    for (const key of [".", "..", "abc/def", "abc:def", "two words", "Upper", "a".repeat(65), "-edge", "edge-"]) {
+      expect(() => contractPath(cwd, key)).toThrow(/Invalid task_key/);
+    }
+  });
+
+  test("tool calls reject invalid keys instead of sanitizing them", () => {
+    const cwd = workspace();
+    expect(() =>
+      callTool(cwd, "justsend_contract_set", {
+        task_key: "abc/def",
+        objective: "bad identity",
+        tier: "LIGHT",
+        criteria,
+      }),
+    ).toThrow(/Invalid task_key/);
+    expect(existsSync(join(cwd, ".justsend", "contract", "abc-def.json"))).toBe(false);
+  });
 });
 
 describe("completion gate", () => {
@@ -229,10 +338,40 @@ describe("completion gate", () => {
     expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
   });
 
-  test("enforce false tracks without gating", () => {
+  test("agent payload cannot disarm the user-owned gate", () => {
     const cwd = workspace();
-    contracted(cwd, { enforce: false });
-    expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
+    expect(() => contracted(cwd, { enforce: false })).toThrow(/user-owned/);
+    expect(TOOLS.find((tool) => tool.name === "justsend_contract_set")?.inputSchema.properties.enforce).toBeUndefined();
+  });
+
+  test("user config selects strict or advisory and defaults to strict", () => {
+    const cwd = workspace();
+    const configRoot = workspace();
+    const previous = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = configRoot;
+    try {
+      contracted(cwd);
+      expect(loadContract(cwd, "t").verification_mode).toBe("strict");
+      expect(gateReason(loadContract(cwd, "t"))).toContain("c1[pending]");
+      mkdirSync(join(configRoot, "justsend-plugin"), { recursive: true });
+      writeFileSync(
+        join(configRoot, "justsend-plugin", "config.json"),
+        JSON.stringify({ verification: { mode: "advisory" } }),
+      );
+      contracted(cwd);
+      expect(loadContract(cwd, "t").verification_mode).toBe("advisory");
+      expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
+      expect(callTool(cwd, "justsend_contract_status", { task_key: "t" })).toContain("Verification mode: advisory");
+      expect(callTool(cwd, "justsend_contract_status", { task_key: "t", format: "report" })).toContain("⚠️ advisory");
+      writeFileSync(
+        join(configRoot, "justsend-plugin", "config.json"),
+        JSON.stringify({ verification: { mode: "strict" } }),
+      );
+      expect(gateReason(loadContract(cwd, "t"))).toContain("c1[pending]");
+    } finally {
+      if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previous;
+    }
   });
 
   test("an empty criteria list is never done", () => {
@@ -280,6 +419,7 @@ describe("a blocked contract", () => {
     const gate = cli(cwd, ["gate", "t"]);
     expect(gate.status).toBe(0);
     expect(gate.stdout).toBe("");
+    expect(loadContract(cwd, "t").completion_lease).toBeUndefined();
   });
 
   test("new evidence re-arms the gate", () => {
@@ -396,6 +536,346 @@ describe("a blocked contract", () => {
     });
     expect(blocked.status).toBe(0);
     expect(loadContract(cwd, "t").blocked_at).toBeString();
+  });
+});
+
+describe("completion lease", () => {
+  const server = fileURLToPath(new URL("../mcp/contract.mjs", import.meta.url));
+  const cli = (cwd: string, args: string[]) =>
+    spawnSync(process.execPath, [server, ...args], {
+      cwd,
+      env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
+      encoding: "utf8",
+    });
+
+  function proven(cwd: string) {
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "lease",
+      objective: "lease",
+      tier: "LIGHT",
+      criteria: [{ id: "c1", scenario: "review", observable: "approved", proof: "review" }],
+    });
+    callTool(cwd, "justsend_evidence", {
+      task_key: "lease",
+      criterion_id: "c1",
+      kind: "surface",
+      artifact_path: artifact(cwd),
+    });
+  }
+
+  test("gate freezes the approved revision until close consumes it", () => {
+    const cwd = workspace();
+    proven(cwd);
+    expect(cli(cwd, ["gate", "lease"]).status).toBe(0);
+    const leased = loadContract(cwd, "lease");
+    expect(leased.completion_lease.revision).toBe(leased.revision);
+    expect(() =>
+      callTool(cwd, "justsend_contract_set", {
+        task_key: "lease",
+        objective: "lease",
+        tier: "HEAVY",
+        criteria: [{ id: "c2", scenario: "late", observable: "must not race" }],
+      }),
+    ).toThrow(/Completion is in progress/);
+    expect(cli(cwd, ["close", "lease"]).status).toBe(0);
+    const closed = loadContract(cwd, "lease");
+    expect(closed.closed_at).toBeString();
+    expect(closed.completion_lease).toBeUndefined();
+    expect(closed.criteria.some((entry: { id: string }) => entry.id === "c2")).toBe(false);
+  });
+
+  test("a second completion is denied while the first lease is active", () => {
+    const cwd = workspace();
+    proven(cwd);
+    expect(cli(cwd, ["gate", "lease"]).status).toBe(0);
+    const second = cli(cwd, ["gate", "lease"]);
+    expect(second.status).toBe(2);
+    expect(second.stderr).toContain("already in progress");
+  });
+
+  test("release clears a failed completion lease without closing", () => {
+    const cwd = workspace();
+    proven(cwd);
+    expect(cli(cwd, ["gate", "lease"]).status).toBe(0);
+    expect(cli(cwd, ["release", "lease"]).status).toBe(0);
+    const contract = loadContract(cwd, "lease");
+    expect(contract.completion_lease).toBeUndefined();
+    expect(contract.closed_at).toBeUndefined();
+    expect(() =>
+      callTool(cwd, "justsend_contract_set", {
+        task_key: "lease", objective: "resume", tier: "LIGHT", criteria,
+      }),
+    ).not.toThrow();
+  });
+
+  test("an invalid completion key falls back to the active contract gate", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const gate = cli(cwd, ["gate", "IOSPROD-202"]);
+    expect(gate.status).toBe(2);
+    expect(gate.stderr).toContain('for "t"');
+  });
+
+  test("a proven fallback contract is read-only and receives no unrelated lease", () => {
+    const cwd = workspace();
+    proven(cwd);
+    expect(cli(cwd, ["gate", "IOSPROD-202"]).status).toBe(0);
+    expect(loadContract(cwd, "lease").completion_lease).toBeUndefined();
+  });
+
+  test("a blocker invalidates the strict lease and latest gate state permits close", () => {
+    const cwd = workspace();
+    proven(cwd);
+    expect(cli(cwd, ["gate", "lease"]).status).toBe(0);
+    expect(cli(cwd, ["block", "lease"]).status).toBe(0);
+    const blocked = loadContract(cwd, "lease");
+    expect(blocked.completion_lease).toBeUndefined();
+    expect(blocked.blocked_at).toBeString();
+    expect(cli(cwd, ["close", "lease"]).status).toBe(0);
+    expect(loadContract(cwd, "lease").closed_at).toBeString();
+  });
+
+  test("advisory completion closes without creating a strict lease", () => {
+    const cwd = workspace();
+    const configRoot = workspace();
+    mkdirSync(join(configRoot, "justsend-plugin"), { recursive: true });
+    writeFileSync(
+      join(configRoot, "justsend-plugin", "config.json"),
+      JSON.stringify({ verification: { mode: "advisory" } }),
+    );
+    const previous = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = configRoot;
+    try {
+      callTool(cwd, "justsend_contract_set", {
+        task_key: "advisory", objective: "tracked", tier: "LIGHT", criteria,
+      });
+      expect(cli(cwd, ["gate", "advisory"]).status).toBe(0);
+      expect(loadContract(cwd, "advisory").completion_lease).toBeUndefined();
+      expect(cli(cwd, ["close", "advisory"]).status).toBe(0);
+      expect(loadContract(cwd, "advisory").closed_at).toBeString();
+    } finally {
+      if (previous === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previous;
+    }
+  });
+
+  test("strict pending state refuses close without an approval lease", () => {
+    const cwd = workspace();
+    contracted(cwd, { task_key: "pending-close" });
+    const close = cli(cwd, ["close", "pending-close"]);
+    expect(close.status).toBe(2);
+    expect(close.stderr).toContain("contract remains open");
+    expect(loadContract(cwd, "pending-close").closed_at).toBeUndefined();
+  });
+
+  test("an empty contract allowed by the gate can still close", () => {
+    const cwd = workspace();
+    contracted(cwd, { task_key: "empty" });
+    const empty = loadContract(cwd, "empty");
+    empty.criteria = [];
+    writeFileSync(contractPath(cwd, "empty"), `${JSON.stringify(empty, null, 2)}\n`);
+    expect(cli(cwd, ["gate", "empty"]).status).toBe(0);
+    expect(cli(cwd, ["close", "empty"]).status).toBe(0);
+    expect(loadContract(cwd, "empty").closed_at).toBeString();
+  });
+
+  test("retract abandon closes without a completion lease", () => {
+    const cwd = workspace();
+    contracted(cwd, { task_key: "retracted" });
+    expect(cli(cwd, ["abandon", "retracted"]).status).toBe(0);
+    expect(loadContract(cwd, "retracted").closed_at).toBeString();
+  });
+});
+
+describe("multi-process storage", () => {
+  test("concurrent contract upserts preserve every successful writer", async () => {
+    const cwd = workspace();
+    contracted(cwd, { task_key: "race" });
+    const barrier = join(cwd, "go");
+    const moduleUrl = new URL("../mcp/contract.mjs", import.meta.url).href;
+    const children = Array.from({ length: 12 }, (_, index) => {
+      const script = `
+        import { existsSync } from "node:fs";
+        import { callTool } from ${JSON.stringify(moduleUrl)};
+        const sleep = new Int32Array(new SharedArrayBuffer(4));
+        while (!existsSync(process.env.BARRIER)) Atomics.wait(sleep, 0, 0, 2);
+        callTool(process.env.WORKSPACE, "justsend_contract_set", {
+          task_key: "race", objective: "race", tier: "HEAVY",
+          criteria: [{ id: process.env.CRITERION, scenario: "run", observable: "kept" }],
+        });
+      `;
+      return Bun.spawn([process.execPath, "-e", script], {
+        env: {
+          ...process.env,
+          WORKSPACE: cwd,
+          BARRIER: barrier,
+          CRITERION: `p${index}`,
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+    });
+    writeFileSync(barrier, "go");
+    const exits = await Promise.all(children.map((child) => child.exited));
+    expect(exits).toEqual(Array(12).fill(0));
+    const contract = loadContract(cwd, "race");
+    expect(new Set(contract.criteria.map((entry: { id: string }) => entry.id)).size).toBe(13);
+    expect(contract.revision).toBe(13);
+  });
+
+  test("contract_set and evidence serialize on the same latest revision", async () => {
+    const cwd = workspace();
+    contracted(cwd, { task_key: "mixed" });
+    const proof = artifact(cwd, "mixed.log", "red\n");
+    const barrier = join(cwd, "mixed-go");
+    const moduleUrl = new URL("../mcp/contract.mjs", import.meta.url).href;
+    const common = `
+      import { existsSync } from "node:fs";
+      import { callTool } from ${JSON.stringify(moduleUrl)};
+      const sleep = new Int32Array(new SharedArrayBuffer(4));
+      while (!existsSync(process.env.BARRIER)) Atomics.wait(sleep, 0, 0, 2);
+    `;
+    const set = Bun.spawn([process.execPath, "-e", `${common}
+      callTool(process.env.WORKSPACE, "justsend_contract_set", {
+        task_key: "mixed", objective: "mixed", tier: "HEAVY",
+        criteria: [{ id: "c2", scenario: "second", observable: "kept" }],
+      });
+    `], { env: { ...process.env, WORKSPACE: cwd, BARRIER: barrier }, stderr: "pipe" });
+    const evidence = Bun.spawn([process.execPath, "-e", `${common}
+      callTool(process.env.WORKSPACE, "justsend_evidence", {
+        task_key: "mixed", criterion_id: "c1", kind: "red", artifact_path: process.env.PROOF,
+      });
+    `], { env: { ...process.env, WORKSPACE: cwd, BARRIER: barrier, PROOF: proof }, stderr: "pipe" });
+    writeFileSync(barrier, "go");
+    expect(await Promise.all([set.exited, evidence.exited])).toEqual([0, 0]);
+    const contract = loadContract(cwd, "mixed");
+    expect(contract.criteria.find((entry: { id: string }) => entry.id === "c1").status).toBe("red");
+    expect(contract.criteria.find((entry: { id: string }) => entry.id === "c2")).toBeDefined();
+    expect(contract.revision).toBe(3);
+  });
+
+  test("completion gate waits for an in-flight task commit and reads the new state", async () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const lock = join(cwd, ".justsend", "contract", "t.lock");
+    mkdirSync(lock);
+    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid, token: "writer" }));
+    const server = fileURLToPath(new URL("../mcp/contract.mjs", import.meta.url));
+    const gate = Bun.spawn([process.execPath, server, "gate", "t"], {
+      cwd,
+      env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    // Integration boundary: the independent CLI exposes no in-process clock or
+    // lock-acquired event. This short wait only lets it reach the live lock;
+    // the assertion still depends on the committed state it reads afterwards.
+    await Bun.sleep(50);
+    const contract = loadContract(cwd, "t");
+    contract.criteria[0].status = "surfaced";
+    writeFileSync(contractPath(cwd, "t"), `${JSON.stringify(contract, null, 2)}\n`);
+    rmSync(lock, { recursive: true, force: true });
+    expect(await gate.exited).toBe(0);
+  });
+
+  test("a corrupt contract blocks completion instead of failing open", () => {
+    const cwd = workspace();
+    mkdirSync(join(cwd, ".justsend", "contract"), { recursive: true });
+    writeFileSync(contractPath(cwd, "corrupt"), "{not-json");
+    const server = fileURLToPath(new URL("../mcp/contract.mjs", import.meta.url));
+    const gate = spawnSync(process.execPath, [server, "gate", "corrupt"], {
+      cwd,
+      env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
+      encoding: "utf8",
+    });
+    expect(gate.status).toBe(2);
+    expect(gate.stderr).toContain("Cannot read contract");
+  });
+});
+
+describe("MCP dual-era protocol", () => {
+  const server = fileURLToPath(new URL("../mcp/contract.mjs", import.meta.url));
+  const modernMeta = {
+    "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOLS[0],
+    "io.modelcontextprotocol/clientCapabilities": {},
+    "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" },
+  };
+
+  function rpc(requests: unknown[]) {
+    const run = spawnSync(process.execPath, [server], {
+      cwd: workspace(),
+      input: `${requests.map((request) => JSON.stringify(request)).join("\n")}\n`,
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    return run.stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  }
+
+  test("discovers the modern server with cache and server metadata", () => {
+    const [reply] = rpc([{ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: modernMeta } }]);
+    expect(reply.result).toMatchObject({
+      resultType: "complete",
+      supportedVersions: MODERN_PROTOCOLS,
+      capabilities: { tools: {} },
+      ttlMs: 0,
+      cacheScope: "private",
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "justsend-contract", version: "0.9.0" } },
+    });
+  });
+
+  test("handles a direct modern list request without prior discovery", () => {
+    const [reply] = rpc([{ jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: modernMeta } }]);
+    expect(reply.result.resultType).toBe("complete");
+    expect(reply.result.tools.length).toBeGreaterThan(0);
+    expect(reply.result).toMatchObject({ ttlMs: 0, cacheScope: "private" });
+  });
+
+  test("returns the modern unsupported-version error and supported list", () => {
+    const [reply] = rpc([{
+      jsonrpc: "2.0",
+      id: 3,
+      method: "server/discover",
+      params: {
+        _meta: {
+          ...modernMeta,
+          "io.modelcontextprotocol/protocolVersion": "1900-01-01",
+        },
+      },
+    }]);
+    expect(reply.error).toEqual({
+      code: -32022,
+      message: "Unsupported protocol version",
+      data: { supported: MODERN_PROTOCOLS, requested: "1900-01-01" },
+    });
+  });
+
+  test("rejects incomplete modern request metadata", () => {
+    const [reply] = rpc([{
+      jsonrpc: "2.0",
+      id: 4,
+      method: "server/discover",
+      params: { _meta: { "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOLS[0] } },
+    }]);
+    expect(reply.error.code).toBe(-32602);
+  });
+
+  test("negotiates legacy initialize from server-owned versions", () => {
+    const [supported, unknown] = rpc([
+      {
+        jsonrpc: "2.0",
+        id: 5,
+        method: "initialize",
+        params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "old", version: "1" } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 6,
+        method: "initialize",
+        params: { protocolVersion: "1900-01-01", capabilities: {}, clientInfo: { name: "old", version: "1" } },
+      },
+    ]);
+    expect(supported.result.protocolVersion).toBe("2024-11-05");
+    expect(unknown.result.protocolVersion).toBe(LEGACY_PROTOCOLS[0]);
   });
 });
 
