@@ -164,6 +164,40 @@ describe("evidence artifacts", () => {
     expect(() => validateArtifact(cwd, link)).toThrow(/outside the allowed roots/);
   });
 
+  // 아래 넷은 감사(2026-08-23)에서 실제로 시도해 본 우회다. 전부 막혔고, 막힌 이유는
+  // `realpathSync` 로 먼저 실체를 구한 뒤 **경계 구분자까지 포함해** 접두어를 보기
+  // 때문이다(`real === root || real.startsWith(root + sep)`). 그 두 성질 중 하나만
+  // 빠져도 아래가 통과하므로, 통과하는 상태를 여기 고정한다.
+  test("a parent directory that is a symlink cannot smuggle an outside file in", () => {
+    const cwd = workspace();
+    const gate = join(cwd, "etc");
+    symlinkSync("/etc", gate);
+    expect(() => validateArtifact(cwd, join(gate, "hosts"))).toThrow(/outside the allowed roots/);
+  });
+
+  test("dot-dot cannot climb out of the allowed roots", () => {
+    const cwd = workspace();
+    expect(() => validateArtifact(cwd, "../".repeat(12) + "etc/hosts")).toThrow(
+      /outside the allowed roots/,
+    );
+  });
+
+  test("an absolute path outside the roots is refused", () => {
+    const cwd = workspace();
+    expect(() => validateArtifact(cwd, "/etc/hosts")).toThrow(/outside the allowed roots/);
+  });
+
+  test("a sibling directory whose name starts with a root is not inside it", () => {
+    const cwd = workspace();
+    // `<tmpdir>-evil/x.log` shares the root's textual prefix but not its path
+    // boundary — the classic `startsWith` mistake this check must not make.
+    const sibling = `${tmpdir().replace(/\/$/, "")}-evil`;
+    mkdirSync(sibling, { recursive: true });
+    const path = join(sibling, "x.log");
+    writeFileSync(path, "forged\n");
+    expect(() => validateArtifact(cwd, path)).toThrow(/outside the allowed roots/);
+  });
+
   test("an unknown criterion id is refused and names the known ids", () => {
     const cwd = workspace();
     contracted(cwd);

@@ -16,9 +16,25 @@ WB='(^|[^a-zA-Z0-9_])'   # portable word boundary: POSIX classes, no \b
 payload=$(cat 2>/dev/null) || exit 0
 [ -n "$payload" ] || exit 0
 
+# **위험 패턴은 payload 전체에 걸고, 꺼낸 명령은 안전 예외 판정에만 쓴다.**
+#
+# 이 파일은 처음부터 그렇게 적혀 있었지만 코드는 그러지 않았다(실측 2026-08-23):
+# `subject=${command_field:-$payload}` 가 패턴 검사까지 **꺼낸 명령**으로 돌렸고,
+# 꺼내는 정규식이 `[^"]*` 라 인용부호에서 잘렸다. 그래서 이것이 통과했다:
+#
+#   git commit -m "x" && rm -rf /
+#   echo "hi" ; rm -rf /var/data
+#
+# 잘린 앞토막(`git commit -m `)에는 위험 패턴이 없다. JSON 은 그 인용부호를 `\"` 로
+# 싣기 때문에 진짜 훅 payload 에서도 같은 자리에서 잘린다.
+#
+# 꺼내기도 탈출 인용부호를 살려 고친다. 실패하면 빈 값이고, 그때 안전 예외 판정은
+# "안전하지 않다"로 떨어져 막는다 - 데이터를 지키는 방향의 실패다.
 command_field=$(printf '%s' "$payload" \
-  | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
-subject=${command_field:-$payload}
+  | sed -nE 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)".*/\1/p' | head -n 1)
+command_field=${command_field//\\\"/\"}
+command_field=${command_field//\\\\/\\}
+subject=$payload
 
 # Every rm segment must target only safe build-output directories. A safe
 # segment followed by a dangerous one ("rm -rf node_modules && rm -rf /") is not
@@ -31,7 +47,10 @@ is_safe_rm() {
     [[ $seg =~ ^[[:space:]]*rm[[:space:]]+((-{1,2}[a-zA-Z][a-zA-Z-]*[[:space:]]+)+)(.+)$ ]] || return 1
     rest=${BASH_REMATCH[3]}
     for token in $rest; do
-      norm=${token%/\*}; norm=${norm%/}
+      # 인용부호를 벗긴다. `bash -c "rm -rf node_modules"` 처럼 감싸인 정당한 청소가
+      # 따옴표 하나 때문에 낯선 경로로 읽히지 않게 한다.
+      norm=${token//\"/}; norm=${norm//\'/}
+      norm=${norm%/\*}; norm=${norm%/}
       safe=1
       for d in $SAFE_DIRS; do
         [ "$norm" = "$d" ] && { safe=0; break; }
@@ -53,6 +72,9 @@ has_force_push() {
   rest=${cmd#*git}
   seg=$(printf '%s' "$rest" | tr ';|&' '\n\n\n' | head -n 1)
   for token in $seg; do
+    # payload 를 그대로 보므로 토큰 끝에 JSON 문장부호가 붙는다(`--force"}}`). 벗기지
+    # 않으면 문자열 동일성 비교가 빗나가 `git push origin main --force` 를 놓친다.
+    token=${token//[\"\{\},]/}
     [ "$token" = "-f" ] && return 0
     [ "$token" = "--force" ] && return 0
   done
@@ -63,7 +85,10 @@ hits=""
 add() { hits="${hits:+$hits, }$1"; }
 
 if [[ $subject =~ ${WB}rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|--recursive[[:space:]].*--force|--force[[:space:]].*--recursive) ]]; then
-  is_safe_rm "$subject" || add "rm -rf (recursive delete)"
+  # 안전 예외는 **명령 문자열**에만 물어본다. payload 를 그대로 주면 JSON 의 중괄호와
+  # 인용부호가 토큰이 되어 언제나 "안전하지 않다"가 되고, `rm -rf node_modules` 같은
+  # 정당한 청소가 막힌다. 꺼내지 못했으면 안전 판정 자체를 포기한다(= 막는다).
+  is_safe_rm "${command_field:-$payload}" || add "rm -rf (recursive delete)"
 fi
 [[ $subject =~ ${WB}git[[:space:]]+reset[[:space:]]+--hard($|[^a-zA-Z0-9_]) ]] \
   && add "git reset --hard (loses uncommitted work)"
