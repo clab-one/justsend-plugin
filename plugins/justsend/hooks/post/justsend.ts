@@ -86,7 +86,7 @@ function reminder(cwd: string): string | undefined {
   if (open.length === 0) return undefined;
   return (
     `Open JustSend record(s): ${open.join(", ")}. Close each one with ` +
-    "`justsend_work_complete` (outcome, how it was verified, what is still open), " +
+    "`justsend_work_complete` (`summary`: outcome, verification, failures, and what is still open), " +
     "or leave `justsend_work_note` with `blocker: true` if a human has to act."
   );
 }

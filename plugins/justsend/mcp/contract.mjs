@@ -250,9 +250,9 @@ function report(contract) {
   // The objective's first clause is the subject. A title that carries the whole
   // sentence stops being a fold key: saved searches are text queries over a
   // trigram index, so the shorter and more regular it is, the better it folds.
-  // 80 is not a style choice: `justsend_work_start` takes the first line of `task`
-  // as the record title and cuts it at 80 characters, so a longer line comes back
-  // severed mid-word. Bound it here, at the same budget, with the type included.
+  // 80 is not a style choice: `justsend_work_start.title` is capped at 80
+  // characters, so a longer report title would come back severed mid-word. Bound
+  // it here, at the same budget, with the type included.
   const TITLE_BUDGET = 80;
   const type = contract.type ?? "change";
   const clause = String(contract.objective ?? "")

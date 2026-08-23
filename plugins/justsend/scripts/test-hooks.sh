@@ -86,6 +86,7 @@ if [ -s "$state" ]; then printf 'FAIL progress_note opened a record\n'; fail=$((
 # reminder speaks only when something is open
 post '{"tool_name":"mcp__justsend__justsend_work_start","tool_input":{"task_key":"delta","task":"z"}}'
 if bash ./open-record-reminder.sh | grep -q delta; then pass=$((pass+1)); else printf 'FAIL reminder omitted the open record\n'; fail=$((fail+1)); fi
+if bash ./open-record-reminder.sh | grep -q summary; then pass=$((pass+1)); else printf 'FAIL reminder omitted summary\n'; fail=$((fail+1)); fi
 post '{"tool_name":"mcp__justsend__justsend_work_complete","tool_input":{"task_key":"delta","summary":"s"}}'
 if [ -z "$(bash ./open-record-reminder.sh)" ]; then pass=$((pass+1)); else printf 'FAIL reminder spoke with nothing open\n'; fail=$((fail+1)); fi
 

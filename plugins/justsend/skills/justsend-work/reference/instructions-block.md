@@ -7,15 +7,13 @@ and one-off lookups are not tracked.
 - **One record per task, keyed by `task_key`.** Choose it once at the start
   (kebab-case, e.g. `settings-scroll-jitter`) and reuse it in every later call.
   `justsend_work_start` is find-or-create on that key, so calling it again is
-  safe and never opens a second record. It returns `item_id` immediately, so
-  write notes straight after it — the app applies the queue later, and waiting or
-  polling for it to land buys nothing.
-- **Always open a task record with a picture.** Pass `image_path` on every
-  `justsend_work_start` for new work — a PNG or JPEG you drew for this task. The
-  tool honours it only while it creates the record: a later call with the image
-  attaches nothing, so the record stays pictureless unless it is retracted and
-  rebuilt. Draw a mechanism, not a sentence set large — big picture, very few
-  words, in the language the record is written in. Notes are exempt.
+  safe and never opens a second record. Pass separate `title` and start-time
+  `body`: the body is the lede, scope, method and success criteria, not results.
+  It returns `item_id` immediately; waiting or polling buys nothing.
+- **Open the record with its representative image.** Draw the PNG or JPEG before
+  the first `justsend_work_start` and pass it as `image_path`. A resumed start
+  does not change the existing body or image, so creation is the one attachment
+  chance. Draw a mechanism, not a sentence set large. Notes are exempt.
 - **Always bind the record to its repository.** Pass `project` with the repository
   name (the working-directory basename) on `justsend_work_start`. It becomes a
   tag, and that tag is the only way to ask "what work exists for this repo" later.
@@ -30,9 +28,9 @@ and one-off lookups are not tracked.
   decisions and the reason behind them, and dead ends. Write the failed attempts
   down: a log that records only successes sends the next reader into the same
   trap. Set `blocker: true` when you are stopping and a human has to act.
-- **Close with evidence.** `justsend_work_complete` takes the outcome, how it was
-  verified — the command, the screen, the trace — and what is still open. A
-  summary with no verification is not a summary.
+- **Close with evidence.** `justsend_work_complete` requires `summary`: outcome,
+  verification, failures and what remains. It appends the final audit note; the
+  structured start body and representative image remain unchanged.
 - **Delegated work appends; it does not close.** A subagent receives `task_key`
   and `item_id` from its parent and uses `justsend_progress_note` only. Starting,
   completing, and retracting a record belong to the parent.

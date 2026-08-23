@@ -21,7 +21,8 @@ roots, and completion reports any unproven criteria.
 
 Install the helper from the canonical guide:
 **https://justsend.cloud/install**. The app's **Settings → Agent access** screen
-links to this page.
+links to this page. Plugin 0.8.0's card-authoring payload requires helper 1.3.0
+or later; verify `justsend_health.server_version` before enabling the plugin.
 
 This README documents plugin installation and harness-specific helper
 registration. Install the helper before registering the record server.
@@ -49,8 +50,12 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.7.0 launches the contract server through
-> `mcp/run.sh`, so no host has to substitute a runtime path; 0.6.0 distributes
+> **Version history:** 0.8.0 requires JustSend MCP helper 1.3.0 or later, cleanly
+> separates record `title` and start `body`, and makes the structured brief plus
+> representative `image_path` explicit at record creation. Completion remains the
+> verified `summary` audit note. 0.7.0 launches the
+> contract server through `mcp/run.sh`, so no host has to substitute a runtime
+> path; 0.6.0 distributes
 > the helper outside the app bundle at `/usr/local/bin/justsend-mcp`; 0.5.0
 > replaced loopback HTTP; 0.3.0–0.4.1 registered `127.0.0.1` with a bearer
 > token.

@@ -8,10 +8,10 @@ set -uo pipefail
 printf 'JustSend work memory is available through the `justsend` MCP server.\n'
 printf 'Track substantive work: one record per task, keyed by `task_key`.\n'
 printf 'Read before you write (`justsend_search`, or `justsend_get_record` with `work_id`).\n'
-printf 'Resume with `justsend_context`. Close with `justsend_work_complete` and the evidence.\n'
-# 그림은 나중에 붙일 수 없다 - 만드는 순간에만 받는다. 그래서 매 세션 첫 줄에 함께 실린다.
-printf 'Open every task record with a picture: pass `image_path` on `justsend_work_start`.\n'
-printf 'It is honoured only at creation — a later call attaches nothing.\n'
+printf 'Resume with `justsend_context`. Read `skill://justsend-work` before the first write.\n'
+printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
+printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
+printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then
   printf '\nOpen JustSend record(s) in this directory: %s\n' "$(printf '%s' "$open" | tr '\n' ' ')"

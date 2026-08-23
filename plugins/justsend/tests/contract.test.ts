@@ -415,8 +415,8 @@ describe("the report", () => {
     expect(text).toContain("| c1 | \u2014 | exit code is 0 |");
   });
 
-  // `justsend_work_start` cuts the first line of `task` at 80 characters to make
-  // the title, so a longer line comes back severed mid-word.
+  // `justsend_work_start.title` is capped at 80 characters, so a longer generated
+  // title comes back severed mid-word.
   test("the title line fits the 80-character budget work_start imposes", () => {
     const cwd = workspace();
     contracted(cwd, {

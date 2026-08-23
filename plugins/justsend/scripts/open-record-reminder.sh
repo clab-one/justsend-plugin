@@ -7,6 +7,6 @@ set -uo pipefail
 
 open=$(js_open_records) || exit 0
 printf 'Open JustSend record(s): %s. ' "$(printf '%s' "$open" | tr '\n' ' ')"
-printf 'Before you finish, close each one with `justsend_work_complete` (outcome, how it was verified, what is still open), '
+printf 'Before you finish, close each one with `justsend_work_complete` (`summary`: outcome, verification, failures, and what is still open), '
 printf 'or leave `justsend_work_note` with `blocker: true` if a human has to act.\n'
 exit 0

@@ -66,9 +66,10 @@ For a `proof: "review"` criterion, save the verdict to a file and record it with
 
 ## Step 4 — Close the record
 
-`justsend_work_complete(task_key, summary)` — the summary states what changed (files
-and modules), how it was verified (which scenarios, with their artifact paths), and
-what is still open. The tool re-checks the contract and refuses while anything is
+`justsend_work_complete(task_key, summary)` appends the final audit note and closes
+the task. `summary` states what changed, how it was verified, what failed, and what
+is still open. The structured start body remains the readable brief; do not paste
+raw logs into it. The tool re-checks the contract and refuses while anything is
 unproven.
 
 Two honest ways past a gate you genuinely cannot satisfy, both of which say so out

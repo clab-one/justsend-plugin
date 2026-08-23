@@ -32,8 +32,8 @@ it, so re-registering is safe and never forks a second one.
 - **Notes carry what a diff cannot** — decisions, the reason behind them, and dead
   ends. A log of successes alone sends the next reader into the trap you escaped.
   `blocker: true` when a human has to act; that also stands the gate down.
-- **Close with evidence.** `justsend_work_complete` takes the outcome, how it was
-  verified, and what is still open.
+- **Close with evidence.** `justsend_work_complete` appends the outcome,
+  verification, failures and what is still open as the final audit note.
 - **Delegated work appends.** A subagent gets `task_key` and `item_id` and uses
   `justsend_progress_note` only. Starting, completing, retracting, and every
   contract call belong to the parent.
@@ -60,63 +60,46 @@ which is right for deferring and is never a close.
 The person reads on a phone; the next agent reads after a compaction. Same
 document.
 
-- **The title is the first line of `work_start(task:)`.** Write it
+- **`work_start` takes separate `title` and `body`.** Write `title` as
   `<type>: <subject>` — type from `fix`, `feature`, `investigation`, `migration`,
   `method`, `review`, subject in a few words. The applier prepends the work id, so
-  the line becomes `IOSPROD-12 fix: 로그인 이중 갱신`. Both halves are fold keys: saved
-  searches are text queries over a trigram index, so one search collects a project
-  and another collects every `fix` in it. Pass the same word as
-  `justsend_contract_set(type:)` and the report's first line is this title.
-- **Lead in plain language**, one sentence, before any evidence. A record that
-  opens with a wall of fenced output is one the user scrolls past and the next
-  agent has to read in full to find the line that mattered.
-- **Three parts, in the reader's language**: the one-line summary, the result
-  table, then what failed and what it taught. Say "none" for the last rather than
-  dropping it.
-- **No `#` on that first line.** It is already the largest type on both surfaces,
-  so the marker only reaches the reader as literal `##` next to the work id.
-- **Every task record opens with a picture. Always pass `image_path`.** Not when
-  it seems useful — every time you open a record for new work. One record is one
-  task, and the picture is what makes that row answerable on a phone list where
-  every other row is text.
-
-  **You get one chance.** The tool honours `image_path` only while it *creates*
-  the record. Call `justsend_work_start` again on the same `task_key` with an
-  image and it returns `materialized: true` and attaches nothing — the record
-  then has no picture until it is retracted and rebuilt. So draw it before the
-  first call, not after you notice it is missing.
-
-  Notes are exempt: a comment on the task does not get its own hero.
+  it becomes `IOSPROD-12 fix: 로그인 이중 갱신`. Pass the same type word to
+  `justsend_contract_set(type:)` so the generated report title matches the record.
+  Never repeat the title by deriving it from the first body line.
+- **The start `body` is a brief, not a result.** Start it at `##` and write, in the
+  reader's language: one plain-language lede, scope or method, and the registered
+  success criteria. These are all facts available before execution. Do not invent
+  results or failures at start time.
+- **Draw the representative image before the first `work_start`.** Pass its PNG
+  or JPEG as `image_path` for every new task. The helper only attaches it while
+  creating the record; a resumed start returns `image_status: ignored_existing_record`
+  and does not change the existing body or image. Do not delay this one chance.
+- **Completion is the audit note, not a body rewrite.** Pass `summary` to
+  `justsend_work_complete`: outcome, the evidence that decides it, then what
+  failed and what it taught. Say "none" for the last rather than dropping it.
+  The structured start `body` remains the readable brief; completion accumulates
+  below it as the verified work history.
 - **`image_path` is for a drawing, not for text set large.** eli5 in one line:
   *big picture, very few words, for someone who knows nothing about it.* The
-  picture has to carry the mechanism — what moves where, and where it stops. A
-  sentence or a count rendered at 300px explains nothing the body did not already
-  say, and it is neither searchable nor translated. If a table or a ```mermaid
-  fence can carry it, use those instead; the image is for what they cannot draw.
+  picture has to carry the mechanism — what moves where, and where it stops. Do
+  not also write a Markdown image reference; the app already renders the attached
+  hero above the body and uses it as the row thumbnail.
 - **Paste the table, do not hand-assemble it.**
-  `justsend_contract_status(format: "report")` emits the type line and one bounded
-  row per criterion — `| c1 | ✅ | the observable |` — with an empty header row,
-  because the app ships in sixteen languages and the plugin must not put a word in
-  front of the reader. **You** write the headings and the prose around it, in the
-  language you are already speaking.
+  `justsend_contract_status(format: "report")` emits one bounded row per criterion
+  with a wordless header because the plugin does not know the reader's language.
+  Add the surrounding heading in that language and put the generated table in the
+  completion `summary`; keep raw evidence paths out of the start brief because a
+  phone cannot open them.
 - **A path is not a citation.** `~/.justsend/evidence/red.log` cannot be opened on
-  a phone — the app renders a link but nothing follows it. Quote the line of
-  output that decides the claim, and prefer an `https` URL. Never write a path you
-  did not capture; if an artifact is wrong, capture a new one under a new path
-  rather than overwriting the recorded one.
+  a phone. Quote the line of output that decides the claim, and prefer an `https`
+  URL. If an artifact is wrong, capture a new path rather than overwriting one
+  already recorded.
 - **Four constructs do not survive the renderer.** There is no frontmatter parser,
-  so a leading `---` block draws as a horizontal rule followed by a large heading
-  reading `type: …`. `> [!NOTE]` draws as a plain quote whose first line reads
-  `[!NOTE]`. `[^footnote]` and `$math$` print as those literal characters. What
-  does draw: `- [ ]`, fenced code, ` ```mermaid `, and tables — tables on
-  macOS 13 / iOS 16 and later only, so a table is the one construct that degrades
-  to source text on an old OS. Start a body at `##`.
-- **Do not chain inline code in a sentence.** Three file names joined by
-  separators render as one monospace run and break mid-identifier on a phone
-  (observed: `MCPToolDispatch.sw ift`). Name one path inline, or put several in a
-  table.
-- Structure belongs in the record body, written once — every note ships in full on
-  every sync. A diagram earns its space only when the flow itself moved.
+  GitHub alerts, footnotes, or math renderer. What does draw: headings from `##`,
+  checklists, fenced code, ` ```mermaid `, and tables. Tables degrade to source
+  text on macOS 12 / iOS 15 and earlier.
+- **Do not chain inline code in a sentence.** Name one path inline, or put several
+  in a table. A diagram earns its space only when the flow itself moved.
 
 ## The contract
 
@@ -165,15 +148,17 @@ record is what reaches the user's phone.
 ```mermaid
 graph LR
   A[0 Resume] --> B[1 Contract: tier + criteria]
-  B --> C{open design decisions?}
+  B --> W[Open record: title + brief + image]
+  W --> C{open design decisions?}
   C -- yes --> P[2 plan.md]
   C -- no --> L[3 loop.md]
   P --> L
   L --> R[4 review.md]
 ```
 
-Resume first: `justsend_contract_status` and `justsend_search`. Then register, then
-route — `plan.md` only when design decisions are still open, `loop.md` to build,
+Resume first: `justsend_contract_status` and `justsend_search`. Then register the
+criteria, open the record with separate `title` and brief `body`, and route —
+`plan.md` only when design decisions are still open, `loop.md` to build,
 `review.md` to finish. Each file is read when its phase begins and followed
 literally. **Completion is declared in `review.md` and nowhere else.**
 
@@ -181,13 +166,13 @@ literally. **Completion is declared in `review.md` and nowhere else.**
 
 | You need to | Call |
 |---|---|
-| Open or resume the record | `justsend_work_start` (`task_key`, `task`, plus `project` or `work_id`) |
+| Open or resume the record | `justsend_work_start` (`task_key`, `title`, brief `body`, plus `project` or `work_id`; `image_path` on the first call) |
 | Register or update the criteria | `justsend_contract_set` |
 | Record RED / GREEN / SURFACE / cleanup | `justsend_evidence` |
 | See what is unproven | `justsend_contract_status` |
 | Get the readable artifact to paste | `justsend_contract_status` (`format: "report"`) |
 | Log a decision, a dead end, or a blocker | `justsend_work_note` (`blocker`) |
-| Finish (gated) | `justsend_work_complete` |
+| Finish with the audit note (gated) | `justsend_work_complete` (`summary`) |
 | Append as a delegated agent | `justsend_progress_note` |
 | Park work, or pick it up again | `justsend_work_status` (`backlog` / `in-progress`) |
 | Undo a record created wrongly | `justsend_work_retract` |
