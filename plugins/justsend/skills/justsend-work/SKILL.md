@@ -27,11 +27,16 @@ it, so re-registering is safe and never forks a second one.
   "what work exists for this repo" later. Pass `work_id` instead when the task
   carries an issue number (`IOSPROD-202`) — the number goes to the front of the
   title and the project tag is derived from it.
-- **Read before you write.** `justsend_list_records` and `justsend_search` drop
-  every agent-created record unless you pass `including_agent: true`, so a plain
-  call returns `[]` even when hundreds exist and reads as "no prior work".
-  `justsend_get_record(work_id:)` has no such filter. If a record for this task
-  exists, continue it.
+- **Read before you write.** Search for prior work with `justsend_search`, using a
+  concise query derived from the objective, stable `task_key` or work id, and
+  distinctive domain terms. Always pass `including_agent: true` because prior work
+  records are agent-created; without it a plain call can return `[]` while matching
+  work exists. Use `limit: 5`. When the tool schema advertises it, also pass
+  `strategy: "resume"`; the server searches identity, current state, then history
+  without returning every body. Older servers get the same query and flags without
+  `strategy`. Use `justsend_get_record(work_id:)` when
+  the exact work id is known. Do not use a newest-first list as a substitute for
+  relevance search. If a record for this task exists, continue it.
 - **Resume from the record, not from memory.** After a break or a compaction,
   `justsend_context` returns the current state.
 - **Notes carry what a diff cannot** — decisions, the reason behind them, and dead
@@ -49,10 +54,25 @@ it, so re-registering is safe and never forks a second one.
 
 Writes are queued and applied by the app; `justsend_work_start` still returns
 `item_id` immediately, so notes and completion can follow at once. Do not poll.
-`pending` is normal, `retrying` usually means the app is signed out, `blocked`
-needs the user, `failed` is permanent — report it rather than rewriting from
-memory. When a write seems missing, `justsend_health` separates "queued" from
-"reading a different account"; they look identical from the outside.
+`pending` is normal, `retrying` usually means the app is signed out, and `blocked`
+needs the user. In `justsend_health`, those are current queue states; `failed` is
+cumulative terminal history, not pending work. A failed intent will never retry and
+is never a healthy result: report the returned error, fix its cause, and do not
+claim that intent succeeded. Separate the current queue from cumulative failures
+when reporting overall health. When a write seems missing, `justsend_health`
+separates "queued" from "reading a different account"; they look identical from
+the outside.
+
+`justsend_search(strategy: "resume")` is the default discovery path when supported:
+`identity` checks title/task key, `current` combines agent `work_status` with the
+latest applied update (ordinary records use their item body), and `history` adds
+note annotations. `resolved_scope` and `match_source` say what answered. The user's
+memo `status` is never an agent current-state signal. Search never means "all
+records." Reserve `justsend_list_records` for an explicit inventory by tag, status,
+kind, or newest-first order. Its `limit` returns only the leading slice, so never
+describe that slice as the whole library. Both tools exclude agent records by
+default; pass `including_agent: true` when agent work belongs in the result. State
+the query or filters and `limit` when describing the scope.
 
 Two unrelated status axes exist. `status` is the user's own memo column and reads
 `pending` on every agent-created record — leave it alone. Your calls write

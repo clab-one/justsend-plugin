@@ -24,9 +24,26 @@ and one-off lookups are not tracked.
   tag, and that tag is the only way to ask "what work exists for this repo" later.
   Pass `work_id` instead when the task carries an issue number (e.g.
   `IOSPROD-202`); the project tag is then derived from it.
-- **Read before you write.** Run `justsend_list_records` with this repo's tag, or
-  `justsend_search`, or `justsend_get_record` with `work_id`, before starting. If
-  a record for this task exists, continue it instead of opening a parallel one.
+- **Read before you write.** Search for prior work with `justsend_search`, using a
+  concise query derived from the objective, stable `task_key` or work id, and
+  distinctive domain terms. Always pass `including_agent: true`; otherwise a plain
+  call can return `[]` while matching agent work exists. Use `limit: 5`. When its
+  schema advertises it, also pass `strategy: "resume"`; the server searches
+  identity, current state, then history. Older servers get the same query and flags
+  without `strategy`. `resolved_scope` and `match_source` identify the evidence source;
+  user memo `status` is not agent `work_status`. Use `justsend_get_record(work_id:)`
+  when the exact work id is known. Do not use a newest-first list as a substitute
+  for relevance search. If a matching record exists, continue it instead of
+  opening a parallel one. Reserve
+  `justsend_list_records` for an explicit inventory by tag, status, kind, or
+  newest-first order. Its `limit` is only the leading slice, never the whole
+  library. State the search query or list filters and `limit` when reporting scope.
+- **Treat failed writes as failed work.** In `justsend_health`, `pending`,
+  `retrying`, and `blocked` describe the current queue; `failed` is cumulative
+  terminal history, not pending work. A failed intent never retries and is never a
+  healthy result. Report its returned error, fix the cause, and do not claim that
+  intent succeeded. Report current queue health separately from cumulative
+  failures.
 - **Resume from the record, not from memory.** After a break or a context
   compaction, `justsend_context` returns the compact current state.
 - **Notes carry what a diff cannot.** Use `justsend_work_note` for progress,
