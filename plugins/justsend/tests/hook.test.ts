@@ -258,7 +258,7 @@ describe("packaged authoring contract", () => {
     expect(failed.find((entry) => entry.matcher === "justsend_work_complete")?.hooks[0].command).toContain(" release ");
   });
 
-  test("ships one 0.9.2 plugin with the merged work skill", () => {
+  test("ships one 0.9.3 plugin with the merged work skill", () => {
     const claude = JSON.parse(
       readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8"),
     );
@@ -268,9 +268,9 @@ describe("packaged authoring contract", () => {
     const marketplace = JSON.parse(
       readFileSync(join(root, "..", "..", ".claude-plugin", "marketplace.json"), "utf8"),
     );
-    expect(claude.version).toBe("0.9.2");
-    expect(codex.version).toBe("0.9.2");
-    expect(marketplace.metadata.version).toBe("0.9.2");
+    expect(claude.version).toBe("0.9.3");
+    expect(codex.version).toBe("0.9.3");
+    expect(marketplace.metadata.version).toBe("0.9.3");
     expect(readdirSync(join(root, "skills"), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)).toEqual(["justsend-work"]);
@@ -280,8 +280,12 @@ describe("packaged authoring contract", () => {
     }
   });
 
-  test("injects the same title-body-image start contract the skill teaches", () => {
+  test("injects the authoring contract and MCP schema-failure rules", () => {
     const skill = readFileSync(join(root, "skills", "justsend-work", "SKILL.md"), "utf8");
+    const instructions = readFileSync(
+      join(root, "skills", "justsend-work", "reference", "instructions-block.md"),
+      "utf8",
+    );
     const session = Bun.spawnSync(["bash", join(root, "scripts", "session-start.sh")], {
       cwd: root,
       env: { ...process.env, JUSTSEND_STATE_DIR: state },
@@ -291,6 +295,15 @@ describe("packaged authoring contract", () => {
     for (const token of ["`title`", "`body`", "`image_path`"]) {
       expect(skill).toContain(token);
       expect(output).toContain(token);
+    }
+    const policySurfaces = [skill, instructions, output]
+      .map((text) => text.replace(/\s+/g, " "));
+    for (const rule of [
+      "read its current schema",
+      "`Invalid args` or a schema-validation error means the tool did not run",
+      "until the corrected call succeeds",
+    ]) {
+      for (const surface of policySurfaces) expect(surface).toContain(rule);
     }
     expect(skill).not.toContain("The title is the first line of `work_start(task:)`");
     expect(output).not.toContain("It is honoured only at creation");

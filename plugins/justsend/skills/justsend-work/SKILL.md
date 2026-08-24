@@ -17,6 +17,11 @@ it, so re-registering is safe and never forks a second one.
 
 ## The record
 
+- **Validate every MCP call.** Before the first use of an MCP tool, read its
+  current schema and include every required argument. `Invalid args` or a
+  schema-validation error means the tool did not run and produced no evidence.
+  Correct the payload and retry immediately; do not advance dependent research,
+  plans, todos, or verification criteria until the corrected call succeeds.
 - **Bind it to the repository.** Pass `project` with the repo name (the working
   directory basename) on `justsend_work_start`; it becomes the tag that answers
   "what work exists for this repo" later. Pass `work_id` instead when the task

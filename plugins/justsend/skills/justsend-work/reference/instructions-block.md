@@ -4,6 +4,11 @@ Substantive work is tracked in JustSend through the `justsend` MCP server: code,
 config, infrastructure, and investigations that produce a deliverable. Questions
 and one-off lookups are not tracked.
 
+- **Validate every MCP call.** Before the first use of an MCP tool, read its
+  current schema and include every required argument. `Invalid args` or a
+  schema-validation error means the tool did not run and produced no evidence.
+  Correct the payload and retry immediately; do not advance dependent research,
+  plans, todos, or verification criteria until the corrected call succeeds.
 - **One record per task, keyed by `task_key`.** Choose it once at the start
   (kebab-case, e.g. `settings-scroll-jitter`) and reuse it in every later call.
   `justsend_work_start` is find-or-create on that key, so calling it again is
