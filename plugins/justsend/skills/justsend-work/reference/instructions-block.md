@@ -31,9 +31,9 @@ and one-off lookups are not tracked.
 - **Close with evidence.** `justsend_work_complete` requires `summary`: outcome,
   verification, failures and what remains. It appends the final audit note; the
   structured start body and representative image remain unchanged.
-- **Delegated work appends; it does not close.** A subagent receives `task_key`
-  and `item_id` from its parent and uses `justsend_progress_note` only. Starting,
-  completing, and retracting a record belong to the parent.
+- **Progress appends do not control lifecycle.** `justsend_progress_note` adds a
+  note to an existing `task_key` and `item_id`; it never starts, completes, or
+  retracts the record.
 - **`justsend_work_retract` is for a record you created wrongly.** It moves the
   record to the trash, recoverable for 30 days, and frees the `task_key`. It is
   not a way to close finished work.

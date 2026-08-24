@@ -1,7 +1,7 @@
 # JUSTSEND VERIFY — REVIEW & COMPLETE
 
 The final phase. **Completion is declared only here.** The contract from `SKILL.md`
-binds: tier, criteria, orchestrator-only ownership.
+binds: tier, criteria, and single-owner contract transitions.
 
 ## Step 1 — Gate
 
@@ -16,15 +16,16 @@ artifact path.
 
 ## Step 2 — Review
 
-- **HEAVY** → dispatch an independent read-only review. Do not self-certify HEAVY
-  work; you cannot see the assumption you made twice.
-- **LIGHT** → self-review, walking the same six aspects against each criterion, its
-  evidence, and the diff read from the user's perspective. Confirm every changed
-  line traces back to the request.
+- **HEAVY** → do not self-certify; assumptions repeated in one session are not
+  independent evidence. Obtain an independent review outside the current work
+  session.
+- **LIGHT** → self-review the same six aspects against each criterion, its
+  evidence, and the diff from the user's perspective. Confirm every changed line
+  traces back to the request.
 
 ### The six aspects, and what is not a finding
 
-A reviewer verifies exactly these, never edits code, and never widens the scope:
+Verify exactly these without widening the scope:
 
 1. **Requirements completeness** — every asked-for deliverable exists; no silent
    scope shrink; nothing extra smuggled in. Scope the user deferred, recorded as
@@ -45,7 +46,7 @@ A reviewer verifies exactly these, never edits code, and never widens the scope:
 
 1. Findings come back as a **numbered list**: aspect violated, severity,
    `file:line`, expected versus actual. No prose verdict without items, no edits.
-2. Fix them in the main thread — `loop.md` § Fix-list intake.
+2. Fix them through `loop.md` § Fix-list intake.
 3. Re-review the same scope against the updated diff plus the previous list.
 4. Repeat until the review passes on all six aspects — or an item is genuinely
    stuck, in which case stop and report the item, what was tried, and what is
@@ -72,7 +73,7 @@ is still open. The structured start body remains the readable brief; do not past
 raw logs into it. The tool re-checks the contract and refuses while anything is
 unproven.
 
-There is one honest agent path past a strict gate it genuinely cannot satisfy:
+There is one honest path past a strict gate that genuinely cannot be satisfied:
 `justsend_work_note(blocker: true)` when a human has to act. It stamps
 `blocked_at`, stands the completion gate and Stop hook down, and drops the record
 from the open-record reminder. It is not a close: the next `justsend_evidence`

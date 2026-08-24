@@ -1,7 +1,7 @@
 # JUSTSEND VERIFY — LOOP
 
 Execute until every criterion is `surfaced` with its artifact on disk. The contract
-from `SKILL.md` binds: tier, criteria, orchestrator-only ownership.
+from `SKILL.md` binds: tier, criteria, and single-owner contract transitions.
 
 ## The loop, per criterion
 
@@ -68,23 +68,6 @@ criterion closes, tear it down and record the receipt:
 
 Nothing in code checks a receipt — the gate reads status alone — so this one is
 on you: do not close a criterion whose teardown you have not recorded.
-
-## Delegation
-
-Keep single-file, known-pattern, small changes yourself — the spawn costs more than
-the work, and you cannot review what you did not read. Real independent slices go to
-parallel executors, **at most the concurrency cap per batch**; past that the harness
-queues rather than parallelizes, so the extra spawns buy nothing. This is enforced,
-not advised: the OMP delegation guard blocks an oversized batch and blocks
-explicit/default `task` and compatibility `worker` executor briefs that lack
-**Target / Change / Acceptance** headings. Claude Code and Codex still use the
-shell guard, which validates only `worker` prompts.
-
-Each brief names its files and non-goals, its steps, and an observable result with
-the evidence artifact it must return — a saved log path, not a narrative claim. Tell
-it to skip formatters, linters, and full-suite runs; you run those once at the end.
-A delegated agent appends with `justsend_progress_note` and nothing else: it never
-registers criteria, records evidence, completes, or retracts.
 
 ## Fix-list intake
 

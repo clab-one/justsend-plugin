@@ -34,9 +34,9 @@ it, so re-registering is safe and never forks a second one.
   `blocker: true` when a human has to act; that also stands the gate down.
 - **Close with evidence.** `justsend_work_complete` appends the outcome,
   verification, failures and what is still open as the final audit note.
-- **Delegated work appends.** A subagent gets `task_key` and `item_id` and uses
-  `justsend_progress_note` only. Starting, completing, retracting, and every
-  contract call belong to the parent.
+- **Progress appends do not control lifecycle.** `justsend_progress_note` adds a
+  note to an existing `task_key` and `item_id`; it never starts, completes,
+  retracts, or mutates the verification contract.
 - **Never put a secret in a note.** Records sync to the user's other devices.
 - **A denial is a setting, not a bug.** Reading and appending are separate toggles
   in JustSend → Settings → Agent access. If a tool answers "access is disabled",
@@ -57,8 +57,8 @@ which is right for deferring and is never a close.
 
 ## Writing it so both readers get it
 
-The person reads on a phone; the next agent reads after a compaction. Same
-document.
+The person reads on a phone; a later session resumes after compaction from the
+same document.
 
 - **`work_start` takes separate `title` and `body`.** Write `title` as
   `<type>: <subject>` — type from `fix`, `feature`, `investigation`, `migration`,
@@ -105,7 +105,7 @@ document.
 
 Deliver exactly what was asked, working end to end, proven by captured evidence. A
 green test suite means a unit-level contract holds; it never proves the
-user-facing behavior works. Five things enforce this in code, so write the
+user-facing behavior works. Four things enforce this in code, so write the
 contract expecting to be held to it:
 
 - `justsend_evidence` refuses GREEN with no captured RED. Each accepted artifact is
@@ -116,14 +116,10 @@ contract expecting to be held to it:
 - The `Stop` hook refuses a quiet end of turn for the same reason.
 - A `justsend_work_note` with `blocker: true` stamps `blocked_at`, which stands
   both of those down until the next `justsend_evidence` clears it.
-- The OMP delegation guard refuses an oversized batch and blocks explicit/default
-  `task` and compatibility `worker` executor briefs that lack **Target / Change /
-  Acceptance**. Claude Code and Codex still use the shell guard, which validates
-  only `worker` prompts.
 
-**Triage the tier once**, by what this session will itself edit or execute;
-delegated work is payload and does not raise it. **LIGHT** is a known pattern with
-no open design decisions. **HEAVY** is forced by any of: a new module, layer or
+**Triage the tier once**, by the changes and executions this record covers.
+**LIGHT** is a known pattern with no open design decisions. **HEAVY** is forced
+by any of: a new module, layer or
 abstraction; auth, security, session or permission code; an external integration;
 a schema change or migration; concurrency, transaction boundaries or cache
 invalidation; a refactor crossing domain boundaries; or the user asking for care.
@@ -177,7 +173,7 @@ literally. **Completion is declared in `review.md` and nowhere else.**
 | Get the readable artifact to paste | `justsend_contract_status` (`format: "report"`) |
 | Log a decision, a dead end, or a blocker | `justsend_work_note` (`blocker`) |
 | Finish with the audit note (gated) | `justsend_work_complete` (`summary`) |
-| Append as a delegated agent | `justsend_progress_note` |
+| Append progress to an existing record | `justsend_progress_note` |
 | Park work, or pick it up again | `justsend_work_status` (`backlog` / `in-progress`) |
 | Undo a record created wrongly | `justsend_work_retract` |
 | Recover after a compaction | `justsend_contract_status`, `justsend_context` |

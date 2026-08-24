@@ -6,7 +6,7 @@ obvious. A known procedure, however many steps, does not need a plan phase — p
 in the work record and go to `loop.md`.
 
 The contract from `SKILL.md` still binds: tier, criteria already registered via
-`justsend_contract_set`, and orchestrator-only ownership.
+`justsend_contract_set`, and single-owner contract transitions.
 
 ## Step 1 — Discovery, in parallel
 
@@ -19,7 +19,7 @@ output strictly feeds the next.
 - Structural shapes and codemods → an AST tool. Regex on syntax is a bug waiting
   for the second call site.
 - Plain-text lookup, configs, docs → grep and glob.
-- Unfamiliar layout → one read-only scout per independent area, in parallel.
+- Unfamiliar layout → map the relevant files and boundaries before editing.
 - External API or library behavior → read the source or the docs, not memory.
 
 Record every non-obvious fact with a `file:line` reference in a
@@ -29,18 +29,17 @@ Record every non-obvious fact with a `file:line` reference in a
 
 Pressure-test the design before committing to it. Skip it entirely for LIGHT.
 
-1. Dispatch read-only scouts in parallel, one per role, each returning 3-7 numbered
-   findings of at most three sentences with a `file:line` citation:
-   - **skeptic** — attacks over-engineering, scope creep, premature abstraction.
-   - **validator** — attacks missed edge cases and blast radius.
-   - **researcher** — demands evidence per claim: cite the line or you don't know.
-   - **architect** — attacks leaky abstractions and hidden coupling, while still
-     demanding the simplest design that fits.
-2. Aggregate, then send a second round that cross-attacks the first round's
-   findings.
-3. **You distill.** Keep only what went uncontested, was defended with evidence, or
-   came back stronger. Drop what was conceded. Sort the survivors into hard
-   constraints / decisions / risks with mitigations / open questions.
+Review the design against four lenses, citing `file:line` evidence for every
+finding:
+
+- **Scope** — reject over-engineering, scope creep, and premature abstraction.
+- **Correctness** — identify missed edge cases and blast radius.
+- **Evidence** — reject claims that lack a source citation.
+- **Architecture** — identify leaky abstractions and hidden coupling while keeping
+  the simplest design that fits.
+
+Keep only findings supported by evidence. Sort them into hard constraints,
+decisions, risks with mitigations, and open questions.
 
 ## Step 3 — Settle the order before writing code
 

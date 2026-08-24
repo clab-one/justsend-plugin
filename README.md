@@ -57,11 +57,13 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.9.1 strengthens the OMP executor guard with explicit,
-> default, and whitespace-normalized task-brief enforcement while preserving
-> worker compatibility. Disjoint delegation guidance remains user-level
-> configuration, not shipped plugin behavior, and record-state now selects
-> lifecycle verbs from `tool_name` rather than prose. 0.9.0 serializes
+> **Version history:** 0.9.2 removes agent execution and delegation policy from
+> the cross-harness plugin: Task matchers, OMP executor guards, worker brief
+> guards, and delegation operating guidance now belong to each harness's user
+> configuration. JustSend continues to own work contracts, app-backed records,
+> lifecycle hooks, and destructive-command protection. 0.9.1 strengthened the
+> former OMP executor guard and changed record-state to select lifecycle verbs
+> from `tool_name` rather than prose. 0.9.0 serializes
 > concurrent contract writers, rejects
 > ambiguous task identities, snapshots evidence by SHA-256, moves strict/advisory
 > policy outside the agent tool schema, and supports MCP 2026-07-28 alongside

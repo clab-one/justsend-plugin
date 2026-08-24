@@ -7,8 +7,6 @@
 // omp loads `hooks/post/*.ts` from a marketplace-installed plugin, and Claude
 // Code and Codex ignore a stray `.ts` under `hooks/`, so the two live together.
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -99,79 +97,11 @@ function reminder(cwd: string): string | undefined {
   );
 }
 
-/** The concurrency cap. omp queues spawns past it instead of refusing them, so a
- *  seven-wide batch looks accepted and buys nothing — the model gets no
- *  correction signal. Read from omp's own settings so the guard and the harness
- *  cannot disagree; a conservative 2 when the file is unreadable. */
-export function parseCap(yml: string): number | undefined {
-  const m = /^\s*maxConcurrency:\s*(\d+)\s*$/m.exec(yml);
-  if (!m) return undefined;
-  const n = Number(m[1]);
-  return Number.isInteger(n) && n > 0 ? n : undefined;
-}
-
-function configuredCap(): number {
-  try {
-    const yml = readFileSync(join(homedir(), ".omp", "agent", "config.yml"), "utf8");
-    return parseCap(yml) ?? 2;
-  } catch {
-    return 2;
-  }
-}
-
-const EXECUTOR_SECTIONS = ["Target", "Change", "Acceptance"] as const;
-const EXECUTOR_AGENTS: Record<string, true> = { task: true, worker: true };
-
-/** Missing section headings in an executor brief, at any heading level. */
-export function missingWorkerSections(brief: string): string[] {
-  return EXECUTOR_SECTIONS.filter((s) => !new RegExp(`^#+\\s*${s}\\b`, "im").test(brief));
-}
-
-/** Both delegation rules, for the harness that actually passes a batch.
- *
- *  The shell guard (`delegation-guard.sh`) can only see one agent per call
- *  because that is all Claude Code sends; omp sends `tasks[]`, so the batch cap
- *  is enforceable here and only here. */
-export function guardDelegation(tasks: unknown, cap: number): HookResult {
-  if (!Array.isArray(tasks)) return undefined;
-  if (tasks.length > cap) {
-    return {
-      block: true,
-      reason:
-        `task 배치 ${tasks.length}개가 동시 실행 상한(${cap})을 넘습니다. ` +
-        `초과분은 큐에서 기다리기만 하므로 병렬 이득이 0입니다. 가장 독립적인 ${cap}개만 ` +
-        `먼저 보내고 결과를 받은 뒤 다음 웨이브를 보내거나, 분해를 더 좁히세요.`,
-    };
-  }
-  for (const [i, t] of tasks.entries()) {
-    if (!t || typeof t !== "object") continue;
-    const entry = t as { agent?: unknown; task?: unknown };
-    const requestedAgent = typeof entry.agent === "string" ? entry.agent.trim() : "";
-    const agent = requestedAgent || "task";
-    if (!Object.hasOwn(EXECUTOR_AGENTS, agent)) continue;
-    const missing = missingWorkerSections(typeof entry.task === "string" ? entry.task : "");
-    if (missing.length > 0) {
-      return {
-        block: true,
-        reason:
-          `executor 태스크(${i + 1}번째)에 필수 섹션이 없습니다: ${missing.map((s) => `# ${s}`).join(", ")}. ` +
-          `Target(파일·심볼·비목표) / Change(단계별 변경) / Acceptance(관측 가능한 결과 + 증거 산출물) ` +
-          `세 섹션을 마크다운 헤딩으로 반드시 포함해야 합니다.`,
-      };
-    }
-  }
-  return undefined;
-}
-
 export default function justsend(pi: HookAPILike): void {
-  const cap = configuredCap();
   pi.on("tool_call", async (event, ctx) => {
     const name = String(event.toolName ?? "");
     if (workVerb(name) === "work_complete") {
       return guardComplete(String(event.input?.task_key ?? ""), ctx.cwd);
-    }
-    if (event.toolName === "task") {
-      return guardDelegation(event.input?.tasks, cap);
     }
     if (event.toolName !== "bash") return;
     const command = String(event.input?.command ?? "");
