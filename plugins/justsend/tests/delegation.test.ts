@@ -59,7 +59,7 @@ describe("missingWorkerSections", () => {
 });
 
 describe("guardDelegation (omp: batch)", () => {
-  const ok = { agent: "worker", task: brief(["Target", "Change", "Acceptance"]) };
+  const ok = { agent: "task", task: brief(["Target", "Change", "Acceptance"]) };
 
   test("blocks a batch past the cap, because omp queues instead of refusing", () => {
     const result = guardDelegation([ok, ok, ok], 2);
@@ -69,17 +69,33 @@ describe("guardDelegation (omp: batch)", () => {
   test("allows a batch at the cap", () => {
     expect(guardDelegation([ok, ok], 2)).toBeUndefined();
   });
-  test("blocks a worker whose brief has no acceptance criteria", () => {
-    const result = guardDelegation([{ agent: "worker", task: "go fix it" }], 2);
+  test("blocks an explicit task executor whose brief is incomplete", () => {
+    const result = guardDelegation([{ agent: "task", task: "go fix it" }], 2);
     expect(result?.block).toBe(true);
     expect(result?.reason).toContain("Acceptance");
   });
+  test("blocks the omitted agent because omp resolves it to task", () => {
+    const result = guardDelegation([{ task: "go fix it" }], 2);
+    expect(result?.block).toBe(true);
+    expect(result?.reason).toContain("Acceptance");
+  });
+  test("normalizes agent whitespace the same way omp dispatch does", () => {
+    expect(guardDelegation([{ agent: "   ", task: "go fix it" }], 2)?.block).toBe(true);
+    expect(guardDelegation([{ agent: " task ", task: "go fix it" }], 2)?.block).toBe(true);
+  });
+  test("keeps worker as a compatibility executor", () => {
+    const result = guardDelegation([{ agent: "worker", task: "go fix it" }], 2);
+    expect(result?.block).toBe(true);
+  });
   test("names which task in the batch is malformed", () => {
-    const result = guardDelegation([ok, { agent: "worker", task: "vague" }], 2);
+    const result = guardDelegation([ok, { agent: "task", task: "vague" }], 2);
     expect(result?.reason).toContain("2번째");
   });
-  test("leaves read-only roles alone — a scout returns findings, not changes", () => {
-    expect(guardDelegation([{ agent: "scout", task: "find auth" }], 2)).toBeUndefined();
+  test("leaves read-only roles alone — scouts and reviewers return findings", () => {
+    expect(guardDelegation([
+      { agent: "scout", task: "find auth" },
+      { agent: "reviewer", task: "review diff" },
+    ], 2)).toBeUndefined();
   });
   test("ignores a non-array input instead of throwing", () => {
     expect(guardDelegation(undefined, 2)).toBeUndefined();

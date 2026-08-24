@@ -57,7 +57,12 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.9.0 serializes concurrent contract writers, rejects
+> **Version history:** 0.9.1 strengthens the OMP executor guard with explicit,
+> default, and whitespace-normalized task-brief enforcement while preserving
+> worker compatibility. Disjoint delegation guidance remains user-level
+> configuration, not shipped plugin behavior, and record-state now selects
+> lifecycle verbs from `tool_name` rather than prose. 0.9.0 serializes
+> concurrent contract writers, rejects
 > ambiguous task identities, snapshots evidence by SHA-256, moves strict/advisory
 > policy outside the agent tool schema, and supports MCP 2026-07-28 alongside
 > legacy initialize. It removes the agent `enforce` input and the internal

@@ -119,11 +119,12 @@ function configuredCap(): number {
   }
 }
 
-const WORKER_SECTIONS = ["Target", "Change", "Acceptance"] as const;
+const EXECUTOR_SECTIONS = ["Target", "Change", "Acceptance"] as const;
+const EXECUTOR_AGENTS: Record<string, true> = { task: true, worker: true };
 
 /** Missing section headings in an executor brief, at any heading level. */
 export function missingWorkerSections(brief: string): string[] {
-  return WORKER_SECTIONS.filter((s) => !new RegExp(`^#+\\s*${s}\\b`, "im").test(brief));
+  return EXECUTOR_SECTIONS.filter((s) => !new RegExp(`^#+\\s*${s}\\b`, "im").test(brief));
 }
 
 /** Both delegation rules, for the harness that actually passes a batch.
@@ -145,13 +146,15 @@ export function guardDelegation(tasks: unknown, cap: number): HookResult {
   for (const [i, t] of tasks.entries()) {
     if (!t || typeof t !== "object") continue;
     const entry = t as { agent?: unknown; task?: unknown };
-    if (entry.agent !== "worker") continue;
+    const requestedAgent = typeof entry.agent === "string" ? entry.agent.trim() : "";
+    const agent = requestedAgent || "task";
+    if (!Object.hasOwn(EXECUTOR_AGENTS, agent)) continue;
     const missing = missingWorkerSections(typeof entry.task === "string" ? entry.task : "");
     if (missing.length > 0) {
       return {
         block: true,
         reason:
-          `worker 태스크(${i + 1}번째)에 필수 섹션이 없습니다: ${missing.map((s) => `# ${s}`).join(", ")}. ` +
+          `executor 태스크(${i + 1}번째)에 필수 섹션이 없습니다: ${missing.map((s) => `# ${s}`).join(", ")}. ` +
           `Target(파일·심볼·비목표) / Change(단계별 변경) / Acceptance(관측 가능한 결과 + 증거 산출물) ` +
           `세 섹션을 마크다운 헤딩으로 반드시 포함해야 합니다.`,
       };
@@ -206,14 +209,18 @@ export default function justsend(pi: HookAPILike): void {
     return undefined;
   });
 
-  // Footer only — the status line is where omp shows what is still open without
-  // spending a token on it.
+  // Footer only — a fixed marker that the plugin is loaded, nothing more.
+  //
+  // It used to append `open.join(",")` and the contract's `done/total`. Neither
+  // is reconciled against JustSend: the open list is a per-cwd text ledger that
+  // only shrinks when a close hook fires in the same cwd, and the counter is the
+  // newest unfinished file under `.justsend/contract/`. So the footer accumulated
+  // task_keys with no live record and a counter for work already closed. The
+  // UserPromptSubmit reminder and `justsend_contract_status` read authoritative
+  // state; the footer never did, so it no longer pretends to.
   const status = (ctx: { hasUI: boolean; cwd: string; ui: { setStatus(k: string, t: string): void } }) => {
     if (!ctx.hasUI) return;
-    const open = openRecords(ctx.cwd);
-    const line = contract(ctx.cwd, "line");
-    const parts = [open.length > 0 ? open.join(",") : undefined, line].filter(Boolean);
-    ctx.ui.setStatus("justsend", parts.length > 0 ? `justsend ${parts.join(" ")}` : "justsend");
+    ctx.ui.setStatus("justsend", "justsend");
   };
   pi.on("session_start", async (_event, ctx) => { status(ctx); });
   pi.on("turn_end", async (_event, ctx) => { status(ctx); });

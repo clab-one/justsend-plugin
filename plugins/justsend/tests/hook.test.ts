@@ -64,6 +64,14 @@ describe("registered handlers", () => {
     expect(await call({ toolName: "read", input: { path: "rm -rf /" } }, { cwd: CWD })).toBeUndefined();
   });
 
+  test("a task tool_call applies the executor brief guard", async () => {
+    const handlers = collect();
+    const call = handlers.get("tool_call")!;
+    expect(await call({ toolName: "task", input: { tasks: [{ task: "vague" }] } }, { cwd: CWD })).toMatchObject({
+      block: true,
+    });
+  });
+
   test("work_start opens the record and work_complete closes it", async () => {
     const handlers = collect();
     const result = handlers.get("tool_result")!;
@@ -258,7 +266,7 @@ describe("packaged authoring contract", () => {
     expect(failed.find((entry) => entry.matcher === "justsend_work_complete")?.hooks[0].command).toContain(" release ");
   });
 
-  test("ships one 0.9.0 plugin with the merged work skill", () => {
+  test("ships one 0.9.1 plugin with the merged work skill", () => {
     const claude = JSON.parse(
       readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8"),
     );
@@ -268,9 +276,9 @@ describe("packaged authoring contract", () => {
     const marketplace = JSON.parse(
       readFileSync(join(root, "..", "..", ".claude-plugin", "marketplace.json"), "utf8"),
     );
-    expect(claude.version).toBe("0.9.0");
-    expect(codex.version).toBe("0.9.0");
-    expect(marketplace.metadata.version).toBe("0.9.0");
+    expect(claude.version).toBe("0.9.1");
+    expect(codex.version).toBe("0.9.1");
+    expect(marketplace.metadata.version).toBe("0.9.1");
     expect(readdirSync(join(root, "skills"), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)).toEqual(["justsend-work"]);

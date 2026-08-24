@@ -116,8 +116,10 @@ contract expecting to be held to it:
 - The `Stop` hook refuses a quiet end of turn for the same reason.
 - A `justsend_work_note` with `blocker: true` stamps `blocked_at`, which stands
   both of those down until the next `justsend_evidence` clears it.
-- The delegation guard refuses an oversized batch and a `worker` brief without
-  Target / Change / Acceptance.
+- The OMP delegation guard refuses an oversized batch and blocks explicit/default
+  `task` and compatibility `worker` executor briefs that lack **Target / Change /
+  Acceptance**. Claude Code and Codex still use the shell guard, which validates
+  only `worker` prompts.
 
 **Triage the tier once**, by what this session will itself edit or execute;
 delegated work is payload and does not raise it. **LIGHT** is a known pattern with

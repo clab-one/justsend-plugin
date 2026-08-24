@@ -25,15 +25,24 @@ js_forget() {
   mv "$file.tmp" "$file"
 }
 
-case $payload in
-  *justsend_work_complete*|*justsend_work_retract*|*justsend_work_cancel*) js_forget ;;
-  *justsend_work_note*)
+# The verb is read from the envelope's tool_name, never matched against the whole
+# payload: a work_start whose task or summary quotes "justsend_work_complete"
+# would otherwise take the close branch and never register. Cutting the payload at
+# the first "tool_input" keeps note bodies out of the match; the full payload is
+# the fallback for a harness that orders those two fields the other way.
+envelope=${payload%%'"tool_input"'*}
+verb=$(printf '%s' "$envelope" | js_field tool_name)
+[ -n "$verb" ] || verb=$(printf '%s' "$payload" | js_field tool_name)
+
+case ${verb##*justsend_} in
+  work_complete|work_retract|work_cancel) js_forget ;;
+  work_note)
     # One spelling of "is this a blocker" across both scripts: a glob for `true`
     # anywhere after the word also fires on `"blocker": false` in a note whose
     # body says "true". contract.sh matches the field the same way.
     printf '%s' "$payload" | grep -qE '"blocker"[[:space:]]*:[[:space:]]*true' && js_forget
     ;;
-  *justsend_work_start*)
+  work_start)
     touch "$file"
     grep -q -x -F "$task_key" "$file" 2>/dev/null || printf '%s\n' "$task_key" >> "$file"
     ;;

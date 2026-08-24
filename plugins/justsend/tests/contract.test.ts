@@ -819,7 +819,7 @@ describe("MCP dual-era protocol", () => {
       capabilities: { tools: {} },
       ttlMs: 0,
       cacheScope: "private",
-      _meta: { "io.modelcontextprotocol/serverInfo": { name: "justsend-contract", version: "0.9.0" } },
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "justsend-contract", version: "0.9.1" } },
     });
   });
 

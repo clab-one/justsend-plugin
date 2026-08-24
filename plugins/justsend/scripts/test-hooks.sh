@@ -117,6 +117,11 @@ else pass=$((pass+1)); fi
 if [ "$(find "$JUSTSEND_STATE_DIR" -name open -type f | wc -l | tr -d ' ')" = 1 ]; then
   pass=$((pass+1))
 else printf 'FAIL hostile task_key split the state file\n'; fail=$((fail+1)); fi
+# the verb comes from tool_name, not from the payload text
+post '{"tool_name":"mcp__justsend__justsend_work_start","tool_input":{"task_key":"epsilon","task":"close it with justsend_work_complete once the contract is green"}}'
+if grep -qx epsilon "$state" 2>/dev/null; then pass=$((pass+1)); else printf 'FAIL start quoting justsend_work_complete did not open record\n'; fail=$((fail+1)); fi
+post '{"tool_name":"mcp__justsend__justsend_work_complete","tool_input":{"task_key":"epsilon","summary":"s"}}'
+if grep -qx epsilon "$state" 2>/dev/null; then printf 'FAIL complete did not close the quoting record\n'; fail=$((fail+1)); else pass=$((pass+1)); fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -75,8 +75,10 @@ Keep single-file, known-pattern, small changes yourself — the spawn costs more
 the work, and you cannot review what you did not read. Real independent slices go to
 parallel executors, **at most the concurrency cap per batch**; past that the harness
 queues rather than parallelizes, so the extra spawns buy nothing. This is enforced,
-not advised: the delegation guard blocks an oversized batch and blocks a `worker`
-brief that lacks **Target / Change / Acceptance** headings.
+not advised: the OMP delegation guard blocks an oversized batch and blocks
+explicit/default `task` and compatibility `worker` executor briefs that lack
+**Target / Change / Acceptance** headings. Claude Code and Codex still use the
+shell guard, which validates only `worker` prompts.
 
 Each brief names its files and non-goals, its steps, and an observable result with
 the evidence artifact it must return — a saved log path, not a narrative claim. Tell
