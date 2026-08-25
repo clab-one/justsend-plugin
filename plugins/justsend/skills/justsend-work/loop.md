@@ -1,7 +1,9 @@
 # JUSTSEND VERIFY — LOOP
 
-Execute until every criterion is `surfaced` with its artifact on disk. The contract
-from `SKILL.md` binds: tier, criteria, and single-owner contract transitions.
+Execute until every criterion is `surfaced` with its artifact on disk and, for a
+`red-green` criterion, its teardown receipt recorded. That is the whole exit
+condition, and it is the one the gate checks. The contract from `SKILL.md` binds:
+tier, criteria, and single-owner contract transitions.
 
 ## The loop, per criterion
 
@@ -66,8 +68,11 @@ criterion closes, tear it down and record the receipt:
 - containers → remove; bound ports → confirm nothing listens
 - temp files → remove the paths you created; unset QA-only env vars
 
-Nothing in code checks a receipt — the gate reads status alone — so this one is
-on you: do not close a criterion whose teardown you have not recorded.
+This one is enforced. A `red-green` criterion that reached `surfaced` with no
+receipt blocks completion and the end of the turn, and the gate names it. A
+criterion that spawned nothing costs one call to say so — the assertion is the
+point, not the cleanup. `review` criteria are exempt: a judgement over what was
+read has no teardown to assert.
 
 ## Fix-list intake
 

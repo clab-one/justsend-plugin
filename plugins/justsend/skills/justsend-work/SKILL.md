@@ -130,7 +130,7 @@ same document.
 
 Deliver exactly what was asked, working end to end, proven by captured evidence. A
 green test suite means a unit-level contract holds; it never proves the
-user-facing behavior works. Four things enforce this in code, so write the
+user-facing behavior works. Five things enforce this in code, so write the
 contract expecting to be held to it:
 
 - `justsend_evidence` refuses GREEN with no captured RED. Each accepted artifact is
@@ -139,6 +139,9 @@ contract expecting to be held to it:
 - A `PreToolUse` hook refuses `justsend_work_complete` while a criterion is
   unproven, and names which ones.
 - The `Stop` hook refuses a quiet end of turn for the same reason.
+- A proven `red-green` criterion with no teardown receipt blocks both of those.
+  Say "nothing spawned" when nothing was; the assertion is what is being asked
+  for. `review` criteria are exempt.
 - A `justsend_work_note` with `blocker: true` stamps `blocked_at`, which stands
   both of those down until the next `justsend_evidence` clears it.
 

@@ -226,7 +226,26 @@ function upsertCriteria(contract, inputs) {
 }
 
 const unproven = (contract) => contract.criteria.filter((c) => c.status !== "surfaced");
-const isDone = (contract) => contract.criteria.length > 0 && unproven(contract).length === 0;
+
+/** Proven, but its QA teardown was never recorded.
+ *
+ *  The receipt is not bookkeeping: the resources a scenario spawns outlive the
+ *  proof, and the author is the only one who knows what was spawned. Leaving this
+ *  ungated meant a criterion could close having leaked a server, a container, or a
+ *  temp tree, and the honest sentence in loop.md was "nothing in code checks a
+ *  receipt". A criterion that spawned nothing costs one call to say so, which is
+ *  the point — the assertion is what has value, not the cleanup.
+ *
+ *  Scoped to `red-green`: that proof ran something. A `review` criterion is a
+ *  judgement over what was read, so it has no teardown to assert and demanding one
+ *  would be ceremony that teaches agents to file empty receipts. */
+const unreceipted = (contract) =>
+  contract.criteria.filter(
+    (c) => c.status === "surfaced" && c.proof !== "review" && c.cleanup_receipts.length === 0,
+  );
+
+const isDone = (contract) =>
+  contract.criteria.length > 0 && unproven(contract).length === 0 && unreceipted(contract).length === 0;
 
 /**
  * Evidence artifacts must be a real, non-empty regular file whose realpath sits
@@ -373,6 +392,19 @@ function applyEvidence(contract, criterionId, input) {
   }
 }
 
+/** What the contract still owes, as one sentence. Three readers share it — the
+ *  evidence tool's reply, the compaction summary, and the completion gate — so the
+ *  receipt requirement cannot be visible in one and invisible in another. */
+function remainingWork(contract) {
+  const open = unproven(contract);
+  const leaked = unreceipted(contract);
+  if (open.length === 0 && leaked.length === 0) return "Every criterion is proven and torn down — justsend_work_complete is allowed.";
+  const parts = [];
+  if (open.length > 0) parts.push(`Unproven ${open.length}: ${open.map((c) => c.id).join(", ")}`);
+  if (leaked.length > 0) parts.push(`No teardown receipt ${leaked.length}: ${leaked.map((c) => c.id).join(", ")}`);
+  return parts.join(". ");
+}
+
 function summarize(contract) {
   const where = (evidence) => evidence.source_path ?? evidence.path ?? "note";
   const lines = [`Contract ${contract.task_key} [${contract.tier}]: ${contract.objective}`];
@@ -390,12 +422,7 @@ function summarize(contract) {
   if (contract.verification_mode === "advisory") {
     lines.push("Verification mode: advisory — unproven criteria do not block completion.");
   }
-  const open = unproven(contract);
-  lines.push(
-    open.length === 0
-      ? "Every criterion is proven — justsend_work_complete is allowed."
-      : `Unproven ${open.length}: ${open.map((c) => c.id).join(", ")}`,
-  );
+  lines.push(remainingWork(contract));
   // A disarmed gate that says nothing is how an unproven task quietly becomes a
   // finished one. The compaction and session-start hooks read this same text.
   if (contract.blocked_at) {
@@ -508,12 +535,28 @@ function verificationMode() {
 function gateReason(contract) {
   if (!contract || verificationMode() === "advisory" || contract.closed_at || contract.blocked_at) return undefined;
   const open = unproven(contract);
-  if (open.length === 0) return undefined;
-  return (
-    `Contract gate: criteria still unproven for "${contract.task_key}" — ` +
-    `${open.map((c) => `${c.id}[${c.status}]`).join(", ")}. ` +
-    `Finish the proof with justsend_evidence, or call justsend_work_note with blocker: true when a human has to act.`
-  );
+  const leaked = unreceipted(contract);
+  if (open.length === 0 && leaked.length === 0) return undefined;
+
+  // A criterion with no `status` is a hand-edited or half-written file, not a
+  // state. Reporting it as `[undefined]` named the criterion but not what was
+  // wrong with it, which is the one thing the reader needed.
+  const state = (c) => c.status ?? "no status field — contract file is malformed";
+  const parts = [];
+  if (open.length > 0) {
+    parts.push(
+      `criteria still unproven — ${open.map((c) => `${c.id}[${state(c)}]`).join(", ")}. ` +
+        `Finish the proof with justsend_evidence, or call justsend_work_note with blocker: true when a human has to act.`,
+    );
+  }
+  if (leaked.length > 0) {
+    parts.push(
+      `proven with no teardown recorded — ${leaked.map((c) => c.id).join(", ")}. ` +
+        `Tear down what the scenario spawned and record it with justsend_evidence(kind: "cleanup"); ` +
+        `a note saying nothing was spawned is a valid receipt.`,
+    );
+  }
+  return `Contract gate for "${contract.task_key}": ${parts.join(" Also: ")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -653,12 +696,7 @@ function callTool(cwd, name, args) {
       return current;
     });
     const criterion = contract.criteria.find((entry) => entry.id === args.criterion_id);
-    const open = unproven(contract);
-    const remaining =
-      open.length === 0
-        ? "Every criterion is proven — justsend_work_complete is allowed."
-        : `Unproven ${open.length}: ${open.map((c) => c.id).join(", ")}`;
-    return `${criterion.id} -> ${criterion.status} (${args.kind}). ${remaining}`;
+    return `${criterion.id} -> ${criterion.status} (${args.kind}). ${remainingWork(contract)}`;
   }
 
   if (name === "justsend_contract_status") {

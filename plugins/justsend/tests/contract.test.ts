@@ -20,6 +20,10 @@ import {
   validateArtifact,
 } from "../mcp/contract.mjs";
 
+function manifestVersion(): string {
+  return JSON.parse(readFileSync(fileURLToPath(new URL("../.claude-plugin/plugin.json", import.meta.url)), "utf8")).version;
+}
+
 function workspace(): string {
   return mkdtempSync(join(tmpdir(), "js-contract-"));
 }
@@ -31,6 +35,7 @@ function artifact(cwd: string, name = "out.log", body = "captured output\n"): st
 }
 
 const criteria = [{ scenario: "run the thing", observable: "exit code is 0" }];
+
 
 function contracted(cwd: string, extra: Record<string, unknown> = {}): void {
   callTool(cwd, "justsend_contract_set", {
@@ -328,14 +333,58 @@ describe("completion gate", () => {
     expect(gateReason(loadContract(cwd, "t"))).toContain("c1[pending]");
   });
 
-  test("opens once every criterion is surfaced", () => {
+  test("surfacing alone does not open it — the teardown receipt is part of the proof", () => {
     const cwd = workspace();
     contracted(cwd);
     const path = artifact(cwd);
     for (const kind of ["red", "green", "surface"]) {
       callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind, artifact_path: path });
     }
+    // Proven, but whatever the scenario spawned is still running.
+    const held = gateReason(loadContract(cwd, "t"));
+    expect(held).toContain("no teardown recorded");
+    expect(held).toContain("c1");
+
+    // The other three readers of the same fact. `continuation` resolves its target
+    // through activeContract -> isDone, so a contract that looks finished there ends
+    // the turn quietly no matter what gateReason() would have said.
+    const server = fileURLToPath(new URL("../mcp/contract.mjs", import.meta.url));
+    const stop = spawnSync(process.execPath, [server, "continuation"], {
+      cwd,
+      env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
+      encoding: "utf8",
+    });
+    expect(stop.status).toBe(2);
+    expect(`${stop.stdout}${stop.stderr}`).toContain("no teardown recorded");
+    expect(callTool(cwd, "justsend_contract_status", { task_key: "t" })).toContain("No teardown receipt");
+
+    const reply = callTool(cwd, "justsend_evidence", {
+      task_key: "t",
+      criterion_id: "c1",
+      kind: "cleanup",
+      note: "nothing spawned",
+    });
+    expect(reply).toContain("proven and torn down");
     expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
+    expect(
+      spawnSync(process.execPath, [server, "continuation"], {
+        cwd,
+        env: { ...process.env, JUSTSEND_HOOK_CWD: cwd },
+        encoding: "utf8",
+      }).status,
+    ).toBe(0);
+  });
+
+  test("a criterion with no status field is reported as malformed, not as undefined", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const file = contractPath(cwd, "t");
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    delete raw.criteria[0].status;
+    writeFileSync(file, JSON.stringify(raw));
+    const reason = gateReason(loadContract(cwd, "t"));
+    expect(reason).toContain("malformed");
+    expect(reason).not.toContain("undefined");
   });
 
   test("agent payload cannot disarm the user-owned gate", () => {
@@ -437,7 +486,7 @@ describe("a blocked contract", () => {
     expect(loadContract(cwd, "t").blocked_at).toBeUndefined();
     const gate = cli(cwd, ["gate", "t"]);
     expect(gate.status).toBe(2);
-    expect(gate.stderr).toContain("Contract gate: criteria still unproven");
+    expect(gate.stderr).toContain("criteria still unproven");
   });
 
   test("re-registering the contract re-arms the gate", () => {
@@ -772,7 +821,10 @@ describe("multi-process storage", () => {
     // the assertion still depends on the committed state it reads afterwards.
     await Bun.sleep(50);
     const contract = loadContract(cwd, "t");
+    // Closable, so the assertion is about the lock and the committed read — not
+    // about the receipt rule, which has its own test.
     contract.criteria[0].status = "surfaced";
+    contract.criteria[0].cleanup_receipts = [{ at: new Date().toISOString(), note: "nothing spawned" }];
     writeFileSync(contractPath(cwd, "t"), `${JSON.stringify(contract, null, 2)}\n`);
     rmSync(lock, { recursive: true, force: true });
     expect(await gate.exited).toBe(0);
@@ -819,7 +871,9 @@ describe("MCP dual-era protocol", () => {
       capabilities: { tools: {} },
       ttlMs: 0,
       cacheScope: "private",
-      _meta: { "io.modelcontextprotocol/serverInfo": { name: "justsend-contract", version: "0.9.3" } },
+      // Read from the manifest rather than pinned: the server reports pluginVersion(),
+      // and hook.test.ts is what defends the manifests agreeing with each other.
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "justsend-contract", version: manifestVersion() } },
     });
   });
 

@@ -258,7 +258,12 @@ describe("packaged authoring contract", () => {
     expect(failed.find((entry) => entry.matcher === "justsend_work_complete")?.hooks[0].command).toContain(" release ");
   });
 
-  test("ships one 0.9.3 plugin with the merged work skill", () => {
+  // The literal used to be pinned here, which meant every release edited a test to
+  // agree with itself. The invariant that has value is that the manifests move
+  // together: the install cache is keyed by version, so a bump that misses one
+  // manifest serves stale files under a version that claims to be current. That is
+  // exactly how skill://justsend-work went stale at 0.9.3.
+  test("ships one plugin whose declared versions all agree, with the merged work skill", () => {
     const claude = JSON.parse(
       readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8"),
     );
@@ -268,9 +273,13 @@ describe("packaged authoring contract", () => {
     const marketplace = JSON.parse(
       readFileSync(join(root, "..", "..", ".claude-plugin", "marketplace.json"), "utf8"),
     );
-    expect(claude.version).toBe("0.9.3");
-    expect(codex.version).toBe("0.9.3");
-    expect(marketplace.metadata.version).toBe("0.9.3");
+    expect(claude.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(codex.version).toBe(claude.version);
+    expect(marketplace.metadata.version).toBe(claude.version);
+    // The catalog entry carries no version of its own; it resolves one through
+    // `source`, so a version there would be a fourth copy to drift.
+    expect(marketplace.plugins.find((entry: { name: string }) => entry.name === "justsend")?.source)
+      .toBe("./plugins/justsend");
     expect(readdirSync(join(root, "skills"), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)).toEqual(["justsend-work"]);
