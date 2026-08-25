@@ -57,7 +57,10 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.10.2 narrows that claim to what the renderer actually
+> **Version history:** 0.10.3 turns the page upright: the representative image is
+> a portrait page whose nameplate is the project name, whose headline is the
+> record's own title, set at phone-readable sizes and filled to the bottom.
+> 0.10.2 narrows that claim to what the renderer actually
 > fixes. 0.10.1 sets the representative image as one newspaper
 > page — nameplate and dateline, one headline, one deck, hairline-ruled columns,
 > lead art carrying the mechanism — in black ink on white paper. The former

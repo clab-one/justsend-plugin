@@ -16,9 +16,11 @@ and one-off lookups are not tracked.
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
 - **Open the record with its front page.** The representative image is one
-  newspaper page — nameplate and dateline, one headline, one deck, columns split by
-  hairline rules, and lead art that carries the mechanism. Black ink on white
-  paper; never the app's theme, palette or dark mode. Draw the PNG or JPEG before
+  newspaper page, taller than it is wide — the project name as the nameplate, a
+  dateline, one headline carrying this record's own title, one deck, columns split
+  by hairline rules, and lead art that carries the mechanism. Fill the page and set
+  type large enough to read on a phone. Black ink on white paper; never the app's
+  theme, palette or dark mode. Draw the PNG or JPEG before
   the first `justsend_work_start` and pass it as `image_path`. A resumed start does
   not change the existing body or image, so creation is the one attachment chance.
   Notes are exempt.

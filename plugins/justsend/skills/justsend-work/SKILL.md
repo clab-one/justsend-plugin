@@ -96,9 +96,13 @@ same document.
   success criteria. These are all facts available before execution. Do not invent
   results or failures at start time.
 - **Set the front page before the first `work_start`.** The representative image is
-  one newspaper page: nameplate and dateline, one headline, one deck, then columns
-  divided by hairline rules. Pass its PNG or JPEG as `image_path` for every new
-  task. The helper only attaches it while creating the record; a resumed start
+  one newspaper page, taller than it is wide: nameplate and dateline, one headline,
+  one deck, then columns divided by hairline rules. **The nameplate is the project
+  name** — the repository or work-id project, in the same place every time, the way
+  a paper's name never moves. The record's own title belongs in the headline. Fill
+  the page: a column left half empty is margin, not a page. Set type for a phone —
+  a headline that needs zooming has failed. Pass its PNG or JPEG as `image_path`
+  for every new task. The helper only attaches it while creating the record; a resumed start
   returns `image_status: ignored_existing_record` and does not change the existing
   body or image. Do not delay this one chance.
 - **Completion is the audit note, not a body rewrite.** Pass `summary` to
