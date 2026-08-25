@@ -369,6 +369,13 @@ function applyEvidence(contract, criterionId, input) {
       criterion.cleanup_receipts.push(evidence);
       return criterion;
     case "red":
+      // Without this, a review criterion could reach `red`, and then every door is shut:
+      // surface wants pending, green refuses review, reopen wants surfaced. The old surface
+      // case checked no status so the mistake was recoverable; tightening it made this a
+      // dead end, so the red half has to refuse too.
+      if (criterion.proof === "review") {
+        throw new Error(`Criterion "${criterionId}" is proof=review — surface it once from pending with the basis that was read, no RED/GREEN.`);
+      }
       if (criterion.status !== "pending" && criterion.status !== "red") {
         throw new Error(
           `RED is captured from pending only (currently: ${criterion.status}). Rewriting RED on an already-GREEN criterion forges failing-first.`,

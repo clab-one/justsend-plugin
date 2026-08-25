@@ -1,6 +1,6 @@
 {
   "name": "justsend",
-  "version": "0.9.9",
+  "version": "0.10.0",
   "description": "Work records and a verification contract for coding agents: one record per task_key, evidence that has to exist before a task can be called done.",
   "author": {
     "name": "clab-one",

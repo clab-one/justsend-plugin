@@ -477,6 +477,26 @@ describe("completion gate", () => {
     expect(after.superseded[0].evidence.surface.source_path).toBe(realpathSync(basis));
   });
 
+  test("a review criterion cannot be walked into a dead end by RED", () => {
+    const cwd = workspace();
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "t",
+      objective: "prove it",
+      tier: "LIGHT",
+      criteria: [{ id: "c1", scenario: "judge the prose", observable: "it holds", proof: "review" }],
+    });
+    const path = artifact(cwd);
+    // Reaching red would shut every door: surface wants pending, green refuses review,
+    // reopen wants surfaced. Tightening surface is what made a stray RED unrecoverable.
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "red", artifact_path: path }),
+    ).toThrow(/proof=review/);
+    expect(loadContract(cwd, "t").criteria[0].status).toBe("pending");
+    // Still provable by its own route.
+    callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "surface", artifact_path: path });
+    expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
+  });
+
   test("SURFACE on a red-green criterion still requires the green state", () => {
     const cwd = workspace();
     contracted(cwd);
