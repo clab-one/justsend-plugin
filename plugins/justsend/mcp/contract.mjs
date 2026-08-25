@@ -342,9 +342,16 @@ function captureArtifact(cwd, artifactPath) {
 /**
  * Apply evidence and enforce the transitions:
  *   red     — only from pending or red (a re-capture is fine)
- *   green   — requires RED first; this is the failing-first rule
+ *   green   — only from red; the failing-first rule is a state, not a stored artifact
  *   surface — after green, or straight through when proof is "review"
  *   cleanup — a receipt, any status, needs a note or a path
+ *   reopen  — from surfaced only, with a reason; archives the cycle and returns to pending
+ *
+ * `green` checking for a stored RED instead of the RED state left a two-call bypass: on a
+ * surfaced criterion, green then surface replaced the proof with any file while a RED
+ * captured for some earlier change stood as cover. Re-proving is legitimate — the subject
+ * really does change — so it gets its own explicit door rather than being squeezed through
+ * `cleanup`, which is the only kind that accepts any status.
  */
 function applyEvidence(contract, criterionId, input) {
   const criterion = contract.criteria.find((c) => c.id === criterionId);
@@ -370,12 +377,43 @@ function applyEvidence(contract, criterionId, input) {
       criterion.evidence.red = evidence;
       criterion.status = "red";
       return criterion;
+    case "reopen": {
+      if (criterion.status !== "surfaced") {
+        throw new Error(
+          `Reopen applies to a surfaced criterion (currently: ${criterion.status}). ` +
+          "Nothing is being re-proven, so capture the evidence the status already calls for.",
+        );
+      }
+      if (!input.note) {
+        throw new Error("Reopen needs a note saying what changed, so the archived cycle explains itself.");
+      }
+      criterion.superseded = criterion.superseded ?? [];
+      criterion.superseded.push({
+        at: evidence.at,
+        reason: input.note,
+        evidence: criterion.evidence,
+        cleanup_receipts: criterion.cleanup_receipts,
+      });
+      criterion.evidence = {};
+      criterion.cleanup_receipts = [];
+      criterion.status = "pending";
+      return criterion;
+    }
     case "green":
       if (criterion.proof === "review") {
         throw new Error(`Criterion "${criterionId}" is proof=review — go straight to surface with the review basis, no RED/GREEN.`);
       }
-      if (!criterion.evidence.red) {
-        throw new Error(`Failing-first violation: criterion "${criterionId}" has no RED evidence. Capture the failure before implementing.`);
+      // The state, not the stored artifact. A RED left over from an earlier cycle is not
+      // evidence that THIS change failed first.
+      if (criterion.status !== "red") {
+        throw new Error(
+          criterion.status === "surfaced"
+            ? `Criterion "${criterionId}" is already surfaced. If its subject changed, reopen it with `
+              + "justsend_evidence(kind: \"reopen\", note: what changed) and earn RED again; "
+              + "overwriting GREEN here would reuse the old RED as cover."
+            : `Failing-first violation: criterion "${criterionId}" is ${criterion.status}. `
+              + "Capture the failure before implementing.",
+        );
       }
       criterion.evidence.green = evidence;
       criterion.status = "green";
@@ -611,7 +649,7 @@ const TOOLS = [
       properties: {
         task_key: { type: "string" },
         criterion_id: { type: "string" },
-        kind: { type: "string", enum: ["red", "green", "surface", "cleanup"] },
+        kind: { type: "string", enum: ["red", "green", "surface", "cleanup", "reopen"] },
         artifact_path: { type: "string", description: "Captured output file. Required for red, green, and surface." },
         note: { type: "string", description: "One-line gist. Required for a cleanup receipt with no path." },
       },
@@ -671,12 +709,23 @@ function callTool(cwd, name, args) {
     if (!loadContract(cwd, args.task_key)) {
       throw new Error(`No contract "${args.task_key}" — call justsend_contract_set first.`);
     }
-    if (!args.artifact_path && args.kind !== "cleanup") {
+    if (!args.artifact_path && args.kind !== "cleanup" && args.kind !== "reopen") {
       throw new Error(`${args.kind} evidence requires artifact_path — capture the output to a file and pass that path.`);
     }
     const contract = mutateContract(cwd, args.task_key, (current) => {
       if (!current) throw new Error(`No contract "${args.task_key}" — call justsend_contract_set first.`);
       assertNoCompletionLease(current);
+      // A closed contract is a finished claim. Accepting evidence into it rewrites what was
+      // already reported without anything saying so, which is how a completion summary ends up
+      // describing artifacts that arrived after it. Re-registering is the documented way back.
+      if (current.closed_at) {
+        throw new Error(
+          `Contract "${args.task_key}" was completed at ${current.closed_at}. `
+          + "Evidence after a completion would silently revise a claim already made: "
+          + "re-register it with justsend_contract_set to resume, then reopen the criterion "
+          + "whose subject changed.",
+        );
+      }
       // Validate the id and transition before creating a permanent snapshot.
       applyEvidence(structuredClone(current), args.criterion_id, {
         kind: args.kind,
@@ -696,7 +745,8 @@ function callTool(cwd, name, args) {
       return current;
     });
     const criterion = contract.criteria.find((entry) => entry.id === args.criterion_id);
-    return `${criterion.id} -> ${criterion.status} (${args.kind}). ${remainingWork(contract)}`;
+    const archived = args.kind === "reopen" ? ` ${criterion.superseded.length} cycle(s) archived.` : "";
+    return `${criterion.id} -> ${criterion.status} (${args.kind}).${archived} ${remainingWork(contract)}`;
   }
 
   if (name === "justsend_contract_status") {

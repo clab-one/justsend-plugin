@@ -2,7 +2,7 @@
 // are exactly the rules an agent under pressure will otherwise talk its way
 // around: no GREEN without a RED, no SURFACE before GREEN, no artifact it did
 // not produce, and no completion while a criterion is unproven.
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,8 +24,17 @@ function manifestVersion(): string {
   return JSON.parse(readFileSync(fileURLToPath(new URL("../.claude-plugin/plugin.json", import.meta.url)), "utf8")).version;
 }
 
+// Every run used to leave its temp contracts behind; thousands had accumulated. A suite that
+// tests teardown discipline should not be the thing leaking.
+const workspaces: string[] = [];
+afterAll(() => {
+  for (const dir of workspaces) rmSync(dir, { recursive: true, force: true });
+});
+
 function workspace(): string {
-  return mkdtempSync(join(tmpdir(), "js-contract-"));
+  const dir = mkdtempSync(join(tmpdir(), "js-contract-"));
+  workspaces.push(dir);
+  return dir;
 }
 
 function artifact(cwd: string, name = "out.log", body = "captured output\n"): string {
@@ -385,6 +394,90 @@ describe("completion gate", () => {
     const reason = gateReason(loadContract(cwd, "t"));
     expect(reason).toContain("malformed");
     expect(reason).not.toContain("undefined");
+  });
+
+  test("GREEN needs the RED state, not a RED artifact left over from an earlier cycle", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const path = artifact(cwd);
+    for (const kind of ["red", "green", "surface"]) {
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind, artifact_path: path });
+    }
+    // Two calls used to replace the proof here: green passed because a RED existed at all,
+    // then surface passed because green had just set the status.
+    const forged = artifact(cwd, "forged.log", "anything at all\n");
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "green", artifact_path: forged }),
+    ).toThrow(/already surfaced/);
+    expect(loadContract(cwd, "t").criteria[0].evidence.green.source_path).toBe(realpathSync(path));
+  });
+
+  test("reopen archives the finished cycle, returns to pending, and re-arms the gate", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const path = artifact(cwd);
+    for (const kind of ["red", "green", "surface"]) {
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind, artifact_path: path });
+    }
+    callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "cleanup", note: "nothing spawned" });
+    expect(gateReason(loadContract(cwd, "t"))).toBeUndefined();
+
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "reopen" }),
+    ).toThrow(/note saying what changed/);
+
+    callTool(cwd, "justsend_evidence", {
+      task_key: "t",
+      criterion_id: "c1",
+      kind: "reopen",
+      note: "the tree moved after this was surfaced",
+    });
+    const after = loadContract(cwd, "t").criteria[0];
+    expect(after.status).toBe("pending");
+    expect(after.evidence).toEqual({});
+    expect(after.cleanup_receipts).toEqual([]);
+    expect(after.superseded).toHaveLength(1);
+    // The old cycle is kept, not dropped: that is what makes a reopen auditable.
+    expect(after.superseded[0].evidence.surface.source_path).toBe(realpathSync(path));
+    expect(after.superseded[0].reason).toContain("the tree moved");
+    expect(gateReason(loadContract(cwd, "t"))).toContain("c1[pending]");
+
+    // Failing-first still binds on the new cycle.
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "green", artifact_path: path }),
+    ).toThrow(/Failing-first/);
+  });
+
+  test("reopen applies only to a surfaced criterion", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "reopen", note: "why" }),
+    ).toThrow(/surfaced criterion \(currently: pending\)/);
+  });
+
+  test("a completed contract refuses evidence of every kind", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const path = artifact(cwd);
+    const file = contractPath(cwd, "t");
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    raw.closed_at = "2026-08-25T00:00:00Z";
+    writeFileSync(file, JSON.stringify(raw));
+    // Writing into a finished claim revises what was already reported with nothing saying so.
+    for (const kind of ["red", "green", "surface", "cleanup"]) {
+      expect(() =>
+        callTool(cwd, "justsend_evidence", {
+          task_key: "t",
+          criterion_id: "c1",
+          kind,
+          ...(kind === "cleanup" ? { note: "n" } : { artifact_path: path }),
+        }),
+      ).toThrow(/was completed at/);
+    }
+    // Re-registering is the documented way back, and it clears the stamp.
+    contracted(cwd);
+    expect(loadContract(cwd, "t").closed_at).toBeUndefined();
   });
 
   test("agent payload cannot disarm the user-owned gate", () => {
