@@ -108,8 +108,9 @@ same document.
   below it as the verified work history.
 - **The page is print, not app chrome.** Black ink on white paper, three levels of
   ink, hairline rules, columns — and never the app's theme, palette or dark mode.
-  A record read on two machines is the same page on both, and a hero tinted like
-  the surrounding UI stops being a page at all. eli5 in one line: *big picture,
+  The ink and the frame are fixed, so they do not move with the reader's settings;
+  the language and the fonts it resolves to still do. A hero tinted like the
+  surrounding UI stops being a page at all. eli5 in one line: *big picture,
   very few words, for someone who knows nothing about it.* The lead art carries the
   mechanism — what moves where, and where it stops — and the headline names the
   finding, not the task. Do not also write a Markdown image reference; the app
