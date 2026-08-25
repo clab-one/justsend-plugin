@@ -2,7 +2,7 @@
 // destructive guard blocks and allows the same commands the shell tests cover,
 // and a work tool call opens or closes the open-record list.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import justsend, { guardBash, guardComplete, openRecords, workVerb } from "../hooks/post/justsend";
@@ -263,6 +263,41 @@ describe("packaged authoring contract", () => {
   // together: the install cache is keyed by version, so a bump that misses one
   // manifest serves stale files under a version that claims to be current. That is
   // exactly how skill://justsend-work went stale at 0.9.3.
+
+  // Three times in one session the installed plugin served files older than the tree:
+  // the cache is keyed by version, so content that lands after an install is invisible
+  // until the version moves again. The manifests agreeing with each other does not
+  // catch it — only comparing the installed tree against this one does.
+  test("an install cache for the declared version matches this tree", () => {
+    const version = JSON.parse(readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8")).version;
+    const cacheRoot = join(process.env.HOME ?? "", ".omp/plugins/cache/plugins");
+    // Not installed on this machine: nothing to be out of step with.
+    if (!existsSync(cacheRoot)) return;
+    const prefix = "justsend-plugin___justsend___";
+    const versions = readdirSync(cacheRoot)
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => name.slice(prefix.length));
+    if (versions.length === 0) return;
+
+    // A bump with no reinstall is the same defect wearing a different hat: the
+    // harness keeps serving the previous version, and the declared one has no cache
+    // to compare against, so the file walk below would pass by finding nothing.
+    expect(versions).toContain(version);
+
+    const installed = join(cacheRoot, `${prefix}${version}`);
+
+    const walk = (dir: string, base = ""): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? walk(join(dir, entry.name), join(base, entry.name))
+          : [join(base, entry.name)],
+      );
+    const drifted = walk(root)
+      .filter((rel) => existsSync(join(installed, rel)))
+      .filter((rel) => readFileSync(join(root, rel), "utf8") !== readFileSync(join(installed, rel), "utf8"));
+
+    expect(drifted).toEqual([]);
+  });
   test("ships one plugin whose declared versions all agree, with the merged work skill", () => {
     const claude = JSON.parse(
       readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8"),

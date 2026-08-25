@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "JustSend work memory and verification for coding agents: local MCP work records, a success-criteria contract, and a completion gate that wants evidence.",
-    "version": "0.9.5"
+    "version": "0.9.6"
   },
   "plugins": [
     {
