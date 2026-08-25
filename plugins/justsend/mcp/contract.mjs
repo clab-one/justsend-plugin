@@ -418,13 +418,28 @@ function applyEvidence(contract, criterionId, input) {
       criterion.evidence.green = evidence;
       criterion.status = "green";
       return criterion;
-    case "surface":
-      if (criterion.proof !== "review" && criterion.status !== "green") {
-        throw new Error(`SURFACE comes after GREEN (currently: ${criterion.status}). Only proof=review criteria go straight through.`);
+    case "surface": {
+      // Every proof kind needs a state here, not just red-green. Checking only
+      // `proof !== "review"` left review criteria with no state check at all, so a second
+      // surface silently replaced the basis someone had already reviewed — the same hole
+      // the green guard had, in the same switch.
+      const from = criterion.proof === "review" ? "pending" : "green";
+      if (criterion.status !== from) {
+        throw new Error(
+          criterion.status === "surfaced"
+            ? `Criterion "${criterionId}" is already surfaced. If its subject changed, reopen it with `
+              + "justsend_evidence(kind: \"reopen\", note: what changed); surfacing again would replace "
+              + "the basis with nothing recording that it moved."
+            : criterion.proof === "review"
+              ? `Criterion "${criterionId}" is ${criterion.status}, not pending. A review criterion surfaces `
+                + "once from pending with the basis that was read."
+              : `SURFACE comes after GREEN (currently: ${criterion.status}).`,
+        );
       }
       criterion.evidence.surface = evidence;
       criterion.status = "surfaced";
       return criterion;
+    }
     default:
       throw new Error(`Unknown evidence kind: ${String(input.kind)}`);
   }

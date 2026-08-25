@@ -448,6 +448,44 @@ describe("completion gate", () => {
     ).toThrow(/Failing-first/);
   });
 
+  test("a review criterion surfaces once; the reviewed basis cannot be quietly replaced", () => {
+    const cwd = workspace();
+    callTool(cwd, "justsend_contract_set", {
+      task_key: "t",
+      objective: "prove it",
+      tier: "LIGHT",
+      criteria: [{ id: "c1", scenario: "judge the prose", observable: "it holds", proof: "review" }],
+    });
+    const basis = artifact(cwd, "basis.log", "the basis that was read\n");
+    callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "surface", artifact_path: basis });
+
+    // The green guard does not cover this: a review criterion never enters the red or green
+    // state, so surface was the only door and it checked nothing.
+    const other = artifact(cwd, "other.log", "an unrelated file\n");
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "surface", artifact_path: other }),
+    ).toThrow(/already surfaced/);
+    expect(loadContract(cwd, "t").criteria[0].evidence.surface.source_path).toBe(realpathSync(basis));
+
+    // Reopening is the recorded way to re-review, and it archives the old basis.
+    callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "reopen", note: "the policy text changed" });
+    expect(loadContract(cwd, "t").criteria[0].status).toBe("pending");
+    callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "surface", artifact_path: other });
+    const after = loadContract(cwd, "t").criteria[0];
+    expect(after.status).toBe("surfaced");
+    expect(after.evidence.surface.source_path).toBe(realpathSync(other));
+    expect(after.superseded[0].evidence.surface.source_path).toBe(realpathSync(basis));
+  });
+
+  test("SURFACE on a red-green criterion still requires the green state", () => {
+    const cwd = workspace();
+    contracted(cwd);
+    const path = artifact(cwd);
+    expect(() =>
+      callTool(cwd, "justsend_evidence", { task_key: "t", criterion_id: "c1", kind: "surface", artifact_path: path }),
+    ).toThrow(/SURFACE comes after GREEN \(currently: pending\)/);
+  });
+
   test("reopen applies only to a surfaced criterion", () => {
     const cwd = workspace();
     contracted(cwd);
