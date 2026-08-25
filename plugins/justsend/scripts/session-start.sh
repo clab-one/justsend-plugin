@@ -16,6 +16,7 @@ printf 'In `justsend_health`, current queue states are separate from `failed` cu
 printf 'Resume search resolves identity, then current agent work state, then history; `item.status` is not agent `work_status`. Reserve `justsend_list_records` for explicit inventory.\n'
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
+printf 'That image is one newspaper page - nameplate, headline, deck, hairline-ruled columns, black ink on white paper, never the app theme.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then

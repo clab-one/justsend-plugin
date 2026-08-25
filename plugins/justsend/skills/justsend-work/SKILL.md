@@ -95,20 +95,25 @@ same document.
   reader's language: one plain-language lede, scope or method, and the registered
   success criteria. These are all facts available before execution. Do not invent
   results or failures at start time.
-- **Draw the representative image before the first `work_start`.** Pass its PNG
-  or JPEG as `image_path` for every new task. The helper only attaches it while
-  creating the record; a resumed start returns `image_status: ignored_existing_record`
-  and does not change the existing body or image. Do not delay this one chance.
+- **Set the front page before the first `work_start`.** The representative image is
+  one newspaper page: nameplate and dateline, one headline, one deck, then columns
+  divided by hairline rules. Pass its PNG or JPEG as `image_path` for every new
+  task. The helper only attaches it while creating the record; a resumed start
+  returns `image_status: ignored_existing_record` and does not change the existing
+  body or image. Do not delay this one chance.
 - **Completion is the audit note, not a body rewrite.** Pass `summary` to
   `justsend_work_complete`: outcome, the evidence that decides it, then what
   failed and what it taught. Say "none" for the last rather than dropping it.
   The structured start `body` remains the readable brief; completion accumulates
   below it as the verified work history.
-- **`image_path` is for a drawing, not for text set large.** eli5 in one line:
-  *big picture, very few words, for someone who knows nothing about it.* The
-  picture has to carry the mechanism — what moves where, and where it stops. Do
-  not also write a Markdown image reference; the app already renders the attached
-  hero above the body and uses it as the row thumbnail.
+- **The page is print, not app chrome.** Black ink on white paper, three levels of
+  ink, hairline rules, columns — and never the app's theme, palette or dark mode.
+  A record read on two machines is the same page on both, and a hero tinted like
+  the surrounding UI stops being a page at all. eli5 in one line: *big picture,
+  very few words, for someone who knows nothing about it.* The lead art carries the
+  mechanism — what moves where, and where it stops — and the headline names the
+  finding, not the task. Do not also write a Markdown image reference; the app
+  already renders the attached hero above the body and uses it as the row thumbnail.
 - **Paste the table, do not hand-assemble it.**
   `justsend_contract_status(format: "report")` emits one bounded row per criterion
   with a wordless header because the plugin does not know the reader's language.

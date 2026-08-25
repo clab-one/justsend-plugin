@@ -15,10 +15,13 @@ and one-off lookups are not tracked.
   safe and never opens a second record. Pass separate `title` and start-time
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
-- **Open the record with its representative image.** Draw the PNG or JPEG before
-  the first `justsend_work_start` and pass it as `image_path`. A resumed start
-  does not change the existing body or image, so creation is the one attachment
-  chance. Draw a mechanism, not a sentence set large. Notes are exempt.
+- **Open the record with its front page.** The representative image is one
+  newspaper page — nameplate and dateline, one headline, one deck, columns split by
+  hairline rules, and lead art that carries the mechanism. Black ink on white
+  paper; never the app's theme, palette or dark mode. Draw the PNG or JPEG before
+  the first `justsend_work_start` and pass it as `image_path`. A resumed start does
+  not change the existing body or image, so creation is the one attachment chance.
+  Notes are exempt.
 - **Always bind the record to its repository.** Pass `project` with the repository
   name (the working-directory basename) on `justsend_work_start`. It becomes a
   tag, and that tag is the only way to ask "what work exists for this repo" later.

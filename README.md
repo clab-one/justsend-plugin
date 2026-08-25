@@ -57,7 +57,11 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.9.3 injects MCP schema discipline into every plugin
+> **Version history:** 0.10.1 sets the representative image as one newspaper
+> page — nameplate and dateline, one headline, one deck, hairline-ruled columns,
+> lead art carrying the mechanism — in black ink on white paper. The former
+> instruction to take its colors from the app theme is withdrawn: a record read on
+> two machines is now the same page on both. 0.9.3 injects MCP schema discipline into every plugin
 > session and the portable AGENTS/CLAUDE instruction block: schema failures are
 > non-executed calls and dependent work waits for a corrected successful retry.
 > 0.9.2 removes agent execution and delegation policy from the cross-harness
