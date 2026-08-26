@@ -57,7 +57,13 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.10.3 turns the page upright: the representative image is
+> **Version history:** 0.10.4 names the page by its work id: the nameplate reads
+> `IOSPROD-17` whenever the caller passes `work_id`, and the project axis is the
+> repository directory uppercased with separators removed (`ios-prod` -> `IOSPROD`),
+> so the server's number continues one series instead of forking `ios-prod-1`.
+> A server-issued number arrives after the image is attached, so those pages carry
+> the project alone; guessing the next number is prohibited because the count races
+> with every other agent. 0.10.3 turns the page upright: the representative image is
 > a portrait page whose nameplate is the project name, whose headline is the
 > record's own title, set at phone-readable sizes and filled to the bottom.
 > 0.10.2 narrows that claim to what the renderer actually

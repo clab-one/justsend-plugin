@@ -346,6 +346,8 @@ describe("packaged authoring contract", () => {
       "read its current schema",
       "`Invalid args` or a schema-validation error means the tool did not run",
       "until the corrected call succeeds",
+      "uppercased with separators removed",
+      "The nameplate is the work id",
     ]) {
       for (const surface of policySurfaces) expect(surface).toContain(rule);
     }

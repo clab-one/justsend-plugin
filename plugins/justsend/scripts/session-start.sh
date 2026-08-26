@@ -15,8 +15,9 @@ printf 'Correct the payload and retry immediately; do not advance dependent rese
 printf 'In `justsend_health`, current queue states are separate from `failed` cumulative terminal history; a failed intent never retries and is never success.\n'
 printf 'Resume search resolves identity, then current agent work state, then history; `item.status` is not agent `work_status`. Reserve `justsend_list_records` for explicit inventory.\n'
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
+printf 'Pass `project` as the repo directory uppercased with separators removed (ios-prod -> IOSPROD); the raw directory name forks a second numbering axis.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
-printf 'That image is one portrait newspaper page - the project name as the nameplate, this record title as the headline, a deck, hairline-ruled columns filled to the bottom, phone-readable type, black ink on white paper, never the app theme.\n'
+printf 'That image is one portrait newspaper page. The nameplate is the work id (IOSPROD-17) when you pass `work_id`; a server-issued number arrives after the image is attached, and guessing it races, so those pages carry the project alone. This record title is the headline, then a deck, hairline-ruled columns filled to the bottom, phone-readable type, black ink on white paper, never the app theme.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then

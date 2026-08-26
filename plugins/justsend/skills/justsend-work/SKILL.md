@@ -22,11 +22,14 @@ it, so re-registering is safe and never forks a second one.
   schema-validation error means the tool did not run and produced no evidence.
   Correct the payload and retry immediately; do not advance dependent research,
   plans, todos, or verification criteria until the corrected call succeeds.
-- **Bind it to the repository.** Pass `project` with the repo name (the working
-  directory basename) on `justsend_work_start`; it becomes the tag that answers
-  "what work exists for this repo" later. Pass `work_id` instead when the task
-  carries an issue number (`IOSPROD-202`) — the number goes to the front of the
-  title and the project tag is derived from it.
+- **Bind it to the repository under the project's own name.** Pass `project` as the
+  repo directory uppercased with separators removed (`ios-prod` -> `IOSPROD`,
+  `mac-prod` -> `MACPROD`) on `justsend_work_start`. That string is both the tag
+  and the numbering axis: the server issues the next number against it, so
+  `IOSPROD` continues the series at `IOSPROD-220`. The raw directory name forks a
+  second axis — `ios-prod-1` restarts the count and no saved folder on `IOSPROD`
+  collects it. Pass `work_id` (`IOSPROD-202`) instead when the task already carries
+  an issue number; the project tag is derived from it.
 - **Read before you write.** Search for prior work with `justsend_search`, using a
   concise query derived from the objective, stable `task_key` or work id, and
   distinctive domain terms. Always pass `including_agent: true` because prior work
@@ -97,9 +100,16 @@ same document.
   results or failures at start time.
 - **Set the front page before the first `work_start`.** The representative image is
   one newspaper page, taller than it is wide: nameplate and dateline, one headline,
-  one deck, then columns divided by hairline rules. **The nameplate is the project
-  name** — the repository or work-id project, in the same place every time, the way
-  a paper's name never moves. The record's own title belongs in the headline. Fill
+  one deck, then columns divided by hairline rules. **The nameplate is the work
+  id** — `IOSPROD-17`, the project and this record's number, in the same place every
+  time, the way a paper's name and its edition never move. You know that string
+  only when you pass `work_id` yourself, so pass it whenever the work already
+  carries a number — an issue, a build, a tracker item. When you pass `project`
+  alone the server issues the number atomically and you learn it in the response,
+  after the image is already attached: that page carries the project and nothing
+  more. Never guess the next number from a list to fill the gap — the count races
+  with every other agent, and a duplicate number makes two records answer to one
+  name. The record's own title belongs in the headline. Fill
   the page: a column left half empty is margin, not a page. Set type for a phone —
   a headline that needs zooming has failed. Pass its PNG or JPEG as `image_path`
   for every new task. The helper only attaches it while creating the record; a resumed start

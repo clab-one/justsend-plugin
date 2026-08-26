@@ -16,19 +16,27 @@ and one-off lookups are not tracked.
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
 - **Open the record with its front page.** The representative image is one
-  newspaper page, taller than it is wide — the project name as the nameplate, a
-  dateline, one headline carrying this record's own title, one deck, columns split
+  newspaper page, taller than it is wide. **The nameplate is the work id** —
+  `IOSPROD-17`, the project and this record's number, which you know only when you
+  pass `work_id` yourself; pass it whenever the work already carries a number. When
+  the server issues the number (you passed `project` alone) it arrives after the
+  image is attached, so that page carries the project alone — never guess the next
+  number from a list, the count races with every other agent. Then a dateline, one
+  headline carrying this record's own title, one deck, columns split
   by hairline rules, and lead art that carries the mechanism. Fill the page and set
   type large enough to read on a phone. Black ink on white paper; never the app's
   theme, palette or dark mode. Draw the PNG or JPEG before
   the first `justsend_work_start` and pass it as `image_path`. A resumed start does
   not change the existing body or image, so creation is the one attachment chance.
   Notes are exempt.
-- **Always bind the record to its repository.** Pass `project` with the repository
-  name (the working-directory basename) on `justsend_work_start`. It becomes a
-  tag, and that tag is the only way to ask "what work exists for this repo" later.
-  Pass `work_id` instead when the task carries an issue number (e.g.
-  `IOSPROD-202`); the project tag is then derived from it.
+- **Always bind the record to its repository under the project's own name.** Pass
+  `project` as the repository directory uppercased with separators removed
+  (`ios-prod` -> `IOSPROD`, `mac-prod` -> `MACPROD`) on `justsend_work_start`. That
+  string is both the tag and the numbering axis: the server issues the next number
+  against it, so `IOSPROD` continues the series at `IOSPROD-220`, while the raw
+  directory name forks a second axis (`ios-prod-1`) that restarts the count and no
+  saved folder on `IOSPROD` collects. Pass `work_id` instead when the task already
+  carries an issue number (e.g. `IOSPROD-202`); the project tag is derived from it.
 - **Read before you write.** Search for prior work with `justsend_search`, using a
   concise query derived from the objective, stable `task_key` or work id, and
   distinctive domain terms. Always pass `including_agent: true`; otherwise a plain
