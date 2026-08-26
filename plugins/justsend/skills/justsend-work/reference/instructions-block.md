@@ -16,15 +16,23 @@ and one-off lookups are not tracked.
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
 - **Open the record with its front page.** The representative image is one
-  newspaper page, taller than it is wide. **The nameplate is the work id** —
+  newspaper page, taller than it is wide, and **the renderer owns the frame**: the
+  masthead, dateline, headline and deck are arguments (`--nameplate --dateline
+  --hed --deck`), never markup you write — hand-assembled chrome is why one page
+  carried a 58px sans nameplate with the date beside it and the next a 44px one with
+  the date under the rule. **The nameplate is the work id** —
   `IOSPROD-17`, the project and this record's number, which you know only when you
   pass `work_id` yourself; pass it whenever the work already carries a number. When
   the server issues the number (you passed `project` alone) it arrives after the
   image is attached, so that page carries the project alone — never guess the next
-  number from a list, the count races with every other agent. Then a dateline, one
-  headline carrying this record's own title, one deck, columns split
-  by hairline rules, and lead art that carries the mechanism. Fill the page and set
-  type large enough to read on a phone. Black ink on white paper; never the app's
+  number from a list, the count races with every other agent. The headline carries
+  this record's own title. What you write is the body under the chrome: columns
+  split by hairline rules, and the art that carries the mechanism. Fill the page.
+  The type scale and the page size are fixed — page text that sets `font-size` or
+  `font-family`, and a body-level `<style>` or `<script>`, are rejected, while
+  inside a figure (`svg`) or a sample block (`pre`, `code`) type is yours; a body
+  that does not fit is rejected rather than clipped, so shorten it.
+  Black ink on white paper; never the app's
   theme, palette or dark mode. Draw the PNG or JPEG before
   the first `justsend_work_start` and pass it as `image_path`. A resumed start does
   not change the existing body or image, so creation is the one attachment chance.

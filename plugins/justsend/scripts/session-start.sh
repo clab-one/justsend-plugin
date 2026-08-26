@@ -17,7 +17,9 @@ printf 'Resume search resolves identity, then current agent work state, then his
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
 printf 'Pass `project` as the repo directory uppercased with separators removed (ios-prod -> IOSPROD); the raw directory name forks a second numbering axis.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
-printf 'That image is one portrait newspaper page. The nameplate is the work id (IOSPROD-17) when you pass `work_id`; a server-issued number arrives after the image is attached, and guessing it races, so those pages carry the project alone. This record title is the headline, then a deck, hairline-ruled columns filled to the bottom, phone-readable type, black ink on white paper, never the app theme.\n'
+printf 'That image is one portrait newspaper page whose frame belongs to the renderer: pass the masthead, dateline, headline and deck as arguments (`--nameplate --dateline --hed --deck`) and write only the body under them.\n'
+printf 'The nameplate is the work id (IOSPROD-17) when you pass `work_id`; a server-issued number arrives after the image is attached, and guessing it races, so those pages carry the project alone. This record title is the headline.\n'
+printf 'The type scale and the page size are fixed: page text that sets `font-size` or `font-family`, and a body-level `<style>` or `<script>`, are rejected, while inside a figure (svg) or sample block (pre, code) type is yours. A body that does not fit is rejected, not clipped. Black ink on white paper, never the app theme.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then

@@ -99,22 +99,44 @@ same document.
   success criteria. These are all facts available before execution. Do not invent
   results or failures at start time.
 - **Set the front page before the first `work_start`.** The representative image is
-  one newspaper page, taller than it is wide: nameplate and dateline, one headline,
-  one deck, then columns divided by hairline rules. **The nameplate is the work
-  id** — `IOSPROD-17`, the project and this record's number, in the same place every
-  time, the way a paper's name and its edition never move. You know that string
-  only when you pass `work_id` yourself, so pass it whenever the work already
-  carries a number — an issue, a build, a tracker item. When you pass `project`
-  alone the server issues the number atomically and you learn it in the response,
-  after the image is already attached: that page carries the project and nothing
-  more. Never guess the next number from a list to fill the gap — the count races
-  with every other agent, and a duplicate number makes two records answer to one
-  name. The record's own title belongs in the headline. Fill
-  the page: a column left half empty is margin, not a page. Set type for a phone —
-  a headline that needs zooming has failed. Pass its PNG or JPEG as `image_path`
-  for every new task. The helper only attaches it while creating the record; a resumed start
-  returns `image_status: ignored_existing_record` and does not change the existing
-  body or image. Do not delay this one chance.
+  one newspaper page, taller than it is wide, and **the renderer owns the frame**:
+  the masthead, the dateline, the headline and the deck arrive as arguments
+  (`--nameplate --dateline --hed --deck`), not as markup you write. Pass them and
+  nothing else about the page:
+
+  ```
+  scripts/hero.sh --tokens                    # colors, the type scale, body classes
+  scripts/hero.sh --nameplate IOSPROD-17 --hed '<this record's title>' \
+                  --deck '<one sentence>' [--dateline '<edition>'] \
+                  --out hero.png < columns.html
+  ```
+
+  Hand-assembling that chrome is what broke the last set of pages: one page carried
+  a bold 58px sans nameplate with the date beside it, the next a letter-spaced 44px
+  one with the date under the rule, so the top band landed 14px apart and no two
+  records looked like the same paper. **The nameplate is the work id** —
+  `IOSPROD-17`, the project and this record's number, in the same place every time,
+  the way a paper's name and its edition never move. You know that string only when
+  you pass `work_id` yourself, so pass it whenever the work already carries a number
+  — an issue, a build, a tracker item. When you pass `project` alone the server
+  issues the number atomically and you learn it in the response, after the image is
+  already attached: that page carries the project and nothing more. Never guess the
+  next number from a list to fill the gap — the count races with every other agent,
+  and a duplicate number makes two records answer to one name.
+  What you do write is the body below the chrome: how many columns, what goes in
+  them, which figure carries the mechanism. Fill the page — a column left half
+  empty is margin, not a page. Body layout is yours; the type scale and the page
+  size are not. Page text that sets `font-size` or `font-family` in a `style`
+  attribute, and a body-level `<style>` or `<script>`, are rejected (exit 2) —
+  inside a figure (`svg`) or a sample block (`pre`, `code`) you set type freely,
+  because a diagram's labels are not page type. A body that does not fit is
+  rejected (exit 3) instead of being silently clipped. Shorten it; the page does not
+  grow. Read `--tokens` for the colors, the type scale and the body classes before
+  writing the first page.
+  Pass the PNG or JPEG as `image_path` for every new task. The helper only attaches
+  it while creating the record; a resumed start returns
+  `image_status: ignored_existing_record` and does not change the existing body or
+  image. Do not delay this one chance.
 - **Completion is the audit note, not a body rewrite.** Pass `summary` to
   `justsend_work_complete`: outcome, the evidence that decides it, then what
   failed and what it taught. Say "none" for the last rather than dropping it.

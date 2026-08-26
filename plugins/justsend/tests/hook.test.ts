@@ -348,6 +348,10 @@ describe("packaged authoring contract", () => {
       "until the corrected call succeeds",
       "uppercased with separators removed",
       "The nameplate is the work id",
+      // The frame is the renderer's: pages diverged while every caller hand-wrote
+      // its own masthead, so the four chrome strings arrive as arguments.
+      "--nameplate --dateline --hed --deck",
+      "font-family",
     ]) {
       for (const surface of policySurfaces) expect(surface).toContain(rule);
     }
@@ -360,6 +364,10 @@ describe("packaged authoring contract", () => {
       expect(surface).not.toContain("directory basename");
       expect(surface).not.toContain("nameplate is the project");
       expect(surface).not.toContain("project name as the nameplate");
+      // "nameplate and dateline, one headline, one deck" described a page the caller
+      // assembled by hand. That is now the renderer's frame, and the sentence that
+      // invited an agent to draw it must not survive next to the argument list.
+      expect(surface).not.toContain("nameplate and dateline, one headline");
     }
   });
 });

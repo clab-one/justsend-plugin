@@ -57,7 +57,12 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.10.5 makes the retired wording a test failure: the three
+> **Version history:** 0.11.0 hands the page frame to the renderer. The masthead,
+> dateline, headline and deck are arguments (`--nameplate --dateline --hed --deck`);
+> the caller writes only the body under them, on a fixed type scale and one page
+> size. Hand-assembled chrome is why recent pages disagreed on nameplate size,
+> typeface and date placement. Figures (`svg`) and sample blocks (`pre`, `code`) set
+> their own type; page text that does is rejected. 0.10.5 makes the retired wording a test failure: the three
 > instruction surfaces may not say `directory basename` or name the page after the
 > project alone. 0.10.4 names the page by its work id: the nameplate reads
 > `IOSPROD-17` whenever the caller passes `work_id`, and the project axis is the
