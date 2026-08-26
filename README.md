@@ -57,7 +57,9 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.11.0 hands the page frame to the renderer. The masthead,
+> **Version history:** 0.11.1 states that anything past the frame is rejected, not
+> clipped: a body too tall for the page, and a nameplate or edition that runs past
+> the right margin. 0.11.0 hands the page frame to the renderer. The masthead,
 > dateline, headline and deck are arguments (`--nameplate --dateline --hed --deck`);
 > the caller writes only the body under them, on a fixed type scale and one page
 > size. Hand-assembled chrome is why recent pages disagreed on nameplate size,

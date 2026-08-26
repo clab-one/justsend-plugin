@@ -30,8 +30,9 @@ and one-off lookups are not tracked.
   split by hairline rules, and the art that carries the mechanism. Fill the page.
   The type scale and the page size are fixed — page text that sets `font-size` or
   `font-family`, and a body-level `<style>` or `<script>`, are rejected, while
-  inside a figure (`svg`) or a sample block (`pre`, `code`) type is yours; a body
-  that does not fit is rejected rather than clipped, so shorten it.
+  inside a figure (`svg`) or a sample block (`pre`, `code`) type is yours; anything
+  that does not fit is rejected rather than clipped — a body too tall, or a nameplate
+  or edition past the right margin — so shorten it.
   Black ink on white paper; never the app's
   theme, palette or dark mode. Draw the PNG or JPEG before
   the first `justsend_work_start` and pass it as `image_path`. A resumed start does

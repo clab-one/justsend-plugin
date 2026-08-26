@@ -129,10 +129,11 @@ same document.
   size are not. Page text that sets `font-size` or `font-family` in a `style`
   attribute, and a body-level `<style>` or `<script>`, are rejected (exit 2) —
   inside a figure (`svg`) or a sample block (`pre`, `code`) you set type freely,
-  because a diagram's labels are not page type. A body that does not fit is
-  rejected (exit 3) instead of being silently clipped. Shorten it; the page does not
-  grow. Read `--tokens` for the colors, the type scale and the body classes before
-  writing the first page.
+  because a diagram's labels are not page type. Anything that does not fit is
+  rejected (exit 3) instead of being silently clipped — a body too tall for the
+  page, and equally a nameplate or edition that runs past the right margin, since
+  the dateline holds one line. Shorten it; the page does not grow. Read `--tokens`
+  for the colors, the type scale and the body classes before writing the first page.
   Pass the PNG or JPEG as `image_path` for every new task. The helper only attaches
   it while creating the record; a resumed start returns
   `image_status: ignored_existing_record` and does not change the existing body or

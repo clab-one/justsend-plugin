@@ -19,7 +19,7 @@ printf 'Pass `project` as the repo directory uppercased with separators removed 
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
 printf 'That image is one portrait newspaper page whose frame belongs to the renderer: pass the masthead, dateline, headline and deck as arguments (`--nameplate --dateline --hed --deck`) and write only the body under them.\n'
 printf 'The nameplate is the work id (IOSPROD-17) when you pass `work_id`; a server-issued number arrives after the image is attached, and guessing it races, so those pages carry the project alone. This record title is the headline.\n'
-printf 'The type scale and the page size are fixed: page text that sets `font-size` or `font-family`, and a body-level `<style>` or `<script>`, are rejected, while inside a figure (svg) or sample block (pre, code) type is yours. A body that does not fit is rejected, not clipped. Black ink on white paper, never the app theme.\n'
+printf 'The type scale and the page size are fixed: page text that sets `font-size` or `font-family`, and a body-level `<style>` or `<script>`, are rejected, while inside a figure (svg) or sample block (pre, code) type is yours. Anything that does not fit is rejected, not clipped - a body too tall, or a nameplate or edition past the right margin. Black ink on white paper, never the app theme.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then
