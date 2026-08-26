@@ -353,5 +353,13 @@ describe("packaged authoring contract", () => {
     }
     expect(skill).not.toContain("The title is the first line of `work_start(task:)`");
     expect(output).not.toContain("It is honoured only at creation");
+    // The retired axis and nameplate wording must be gone, not merely outvoted by a
+    // newer sentence: `project` used to be the raw directory basename, which forks a
+    // second numbering series, and the nameplate used to be the project alone.
+    for (const surface of policySurfaces) {
+      expect(surface).not.toContain("directory basename");
+      expect(surface).not.toContain("nameplate is the project");
+      expect(surface).not.toContain("project name as the nameplate");
+    }
   });
 });
