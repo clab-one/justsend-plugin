@@ -10,6 +10,16 @@ import justsend, { guardBash, guardComplete, openRecords, workVerb } from "../ho
 import { callTool, gateReason, loadContract } from "../mcp/contract.mjs";
 
 const CWD = "/tmp/js-omp-hook-test";
+
+// The ten story types, in one place. Six other surfaces name this list - the
+// checker's vocabulary, the selection table, the drawn templates and the three
+// instruction pages an agent reads - and a list that lives in seven places is a
+// list that silently forks. Every surface answers to this one.
+const STORIES = ["flow", "pipeline", "state", "structure", "sequence",
+                 "comparison", "loop", "timeline", "swimlane", "cause"];
+// Deliberately folded into another type, and named as variants in the reference:
+// they must never appear as rows of the selection table.
+const FOLDED = ["tree", "nested", "er", "db-schema"];
 let state: string;
 
 beforeAll(() => {
@@ -369,9 +379,7 @@ describe("packaged authoring contract", () => {
     for (const surface of policySurfaces) {
       expect(surface).toContain("templates/hero");
       expect(surface).toContain("data-type");
-      for (const story of ["flow", "loop", "timeline", "swimlane", "cause"]) {
-        expect(surface).toContain(story);
-      }
+      for (const story of STORIES) expect(surface).toContain(story);
     }
 
     for (const surface of policySurfaces) {
@@ -409,8 +417,6 @@ describe("record diagram tools", () => {
   const run = (path: string, story?: string) =>
     Bun.spawnSync(story ? ["python3", check, "--type", story, path] : ["python3", check, path]);
 
-  const STORIES = ["flow", "pipeline", "state", "structure", "sequence",
-                   "comparison", "loop", "timeline", "swimlane", "cause"];
   // Removing exactly the element the type is named after. The other five types
   // are declaration only, and the test below proves the check does not guess.
   const DEFINING: Record<string, [RegExp, string]> = {
@@ -442,6 +448,43 @@ describe("record diagram tools", () => {
     }
     // Ten templates that were one template with new labels would not fix anything.
     expect(bodies.size).toBe(STORIES.length);
+  });
+
+  // An eleventh type added to one surface is how a vocabulary rots: the checker
+  // would accept `tree`, no template would exist for it, and the reference would
+  // still promise ten. These are the two surfaces the suite never read.
+  test("the checker's vocabulary and the selection table both name exactly the ten", () => {
+    // Ask the checker, not its constants. `TYPES` is an expression, so a type
+    // appended there - `DEFINING + DECLARATION_ONLY + ("tree",)` - would be
+    // accepted by the check while both tuples still read as the ten. The refusal
+    // message lists the vocabulary that actually decides.
+    const refused = run(mutated('data-type="flow"', 'data-type="zzz"'));
+    expect(refused.exitCode).toBe(1);
+    const listed = /is not one of: ([a-z- ]+)/.exec(refused.stderr.toString());
+    expect(listed).not.toBeNull();
+    expect(listed![1].trim().split(" ")).toEqual([...STORIES].sort());
+
+    const source = readFileSync(check, "utf8");
+    const constant = (name: string) => {
+      const block = new RegExp(`^${name} = \\(([^)]*)\\)`, "m").exec(source);
+      expect(block).not.toBeNull();
+      return [...block![1].matchAll(/"([a-z-]+)"/g)].map((m) => m[1]);
+    };
+    // The split between them is load-bearing too: five carry a defining element.
+    expect([...constant("DEFINING"), ...constant("DECLARATION_ONLY")].sort())
+      .toEqual([...STORIES].sort());
+    // The five that carry a defining element are exactly the five the suite mutates.
+    expect([...constant("DEFINING")].sort()).toEqual(Object.keys(DEFINING).sort());
+
+    const reference = readFileSync(
+      join(root, "skills", "justsend-work", "reference", "hero-diagram.md"), "utf8");
+    const rows = [...reference.matchAll(/^\|.*`([a-z-]+)\.html`.*\|$/gm)].map((m) => m[1]);
+    expect(rows.sort()).toEqual([...STORIES].sort());
+    // A folded type stays a named variant in the prose, never a row of its own.
+    for (const folded of FOLDED) {
+      expect(rows).not.toContain(folded);
+      expect(reference).toContain(`\`${folded}\``);
+    }
   });
 
   test("refuses a story outside the vocabulary, and a flag that contradicts the page", () => {

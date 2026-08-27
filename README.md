@@ -57,7 +57,13 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.14.0 gives every story its own drawn page: ten types
+> **Version history:** 0.14.1 keeps the ten from forking. The list lives once in
+> the test file, and six surfaces answer to it: the vocabulary the checker itself
+> refuses by (asked, not parsed - `TYPES` is an expression),
+> the selection table's rows, the drawn templates and the three instruction pages.
+> An eleventh type in one place, a dropped table row, a folded variant promoted to
+> a row, or a story name missing from one instruction page all fail the suite -
+> before, every one of those passed. 0.14.0 gives every story its own drawn page: ten types
 > (흐름 단계 상태 구조 순서 비교 루프 시간축 주체별흐름 원인분해) ship as templates
 > under `templates/hero/`, the svg declares its type with `data-type`, and the
 > check reads that declaration so the bake enforces it. Five of the ten are named
