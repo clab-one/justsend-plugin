@@ -379,7 +379,12 @@ describe("packaged authoring contract", () => {
     for (const surface of policySurfaces) {
       expect(surface).toContain("templates/hero");
       expect(surface).toContain("data-type");
-      for (const story of STORIES) expect(surface).toContain(story);
+      // One bounded sentence, identical on all three surfaces, built here from the
+      // canonical list. Per-name `toContain` was the weaker claim it replaces:
+      // `cause` matched "because" and `state` matched "statement", so a name
+      // deleted from the list still passed, and an eleventh name inserted into it
+      // was never rejected. Requiring the run with its delimiters catches both.
+      expect(surface).toContain(`(ten are drawn: ${STORIES.join(" ")})`);
     }
 
     for (const surface of policySurfaces) {

@@ -57,7 +57,12 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.14.1 keeps the ten from forking. The list lives once in
+> **Version history:** 0.14.2 makes the three instruction pages carry the list as
+> one bounded sentence - `(ten are drawn: … cause)` - and the suite requires that
+> run with its delimiters. Per-name `toContain` was the weaker claim: `cause`
+> matched "because" and `state` matched "statement", so a name deleted from the
+> list still passed and an eleventh name inserted into it was never rejected.
+> 0.14.1 keeps the ten from forking. The list lives once in
 > the test file, and six surfaces answer to it: the vocabulary the checker itself
 > refuses by (asked, not parsed - `TYPES` is an expression),
 > the selection table's rows, the drawn templates and the three instruction pages.

@@ -110,10 +110,10 @@ same document.
   scripts/hero-bake.sh   draft.html out.png        checks, bakes, measures
   ```
 
-  **Ask what the reader must learn, then take that template.** Ten types, one drawn
-  page each: `flow` `pipeline` `state` `structure` `sequence` `comparison` `loop`
-  `timeline` `swimlane` `cause` (흐름·단계·상태·구조·순서·비교·루프·시간축·주체별
-  흐름·원인 분해). Copy the file, keep the frame, replace the labels. Typing
+  **Ask what the reader must learn, then take that template.** One page is drawn per
+  type (ten are drawn: flow pipeline state structure sequence comparison loop
+  timeline swimlane cause) — 흐름·단계·상태·구조·순서·비교·루프·시간축·주체별
+  흐름·원인 분해. Copy the file, keep the frame, replace the labels. Typing
   coordinates from scratch is how every record ends up a flowchart that was never
   the right shape. Declare the choice on the svg — `<svg data-type="loop">` — and
   the check reads it with no flag, so the bake enforces it too.
