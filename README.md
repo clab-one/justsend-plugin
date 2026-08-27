@@ -57,7 +57,11 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.12.0 retires the newspaper page. The representative image is
+> **Version history:** 0.13.0 absorbs the drawing contract. The skin, the six shapes,
+> the ten rules, a dependency-free `hero-check.py` and a `hero-bake.sh` that checks,
+> bakes and measures all ship here, so no instruction points at another plugin's
+> version directory or a profile in the home directory. Attribution:
+> `THIRD_PARTY_LICENSES.md`. 0.12.0 retired the newspaper page. The representative image is
 > one editorial diagram drawn with the `diagram-design` skill under our own profile
 > (`.diagram-design` → `profile: justsend`): eight colors, three local families, Korean
 > labels, no remote font. The bake is the first `<svg>` only at `viewBox` × 2 on painted

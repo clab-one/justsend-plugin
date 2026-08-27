@@ -99,40 +99,33 @@ same document.
   success criteria. These are all facts available before execution. Do not invent
   results or failures at start time.
 - **Draw one diagram before the first `work_start`.** The representative image is
-  a single editorial diagram — one mechanism, drawn once — not a page you typeset.
-  Use the `diagram-design` skill (39 visual types, self-contained HTML + SVG) and
-  our skin: this repository carries `.diagram-design` holding exactly
-  `profile: justsend`, so the drawing resolves marker-first to
-  `~/.diagram-design/profiles/justsend.md` and never touches the shipped default.
+  a single diagram — the mechanism of this task, drawn once — not a page you
+  typeset. Everything it needs lives in this plugin, so a record drawn on one
+  machine is the same drawing on every other one:
 
   ```
-  # 1. draw — the skill's own deliverable, one self-contained HTML file
-  # 2. check — ships with the skill, verifies the accessible-SVG contract
-  python3 <skill-dir>/scripts/self_check.py <file>.html
-  # 3. bake — the first <svg> only, at viewBox x 2, on painted paper
+  skills/justsend-work/reference/hero-diagram.md   the skin, the six shapes, the ten rules
+  scripts/hero-check.py  draft.html                rules 1-10, no dependencies
+  scripts/hero-bake.sh   draft.html out.png        checks, bakes, measures
   ```
 
-  That profile is what makes two records look like one library: eight colors
-  (paper `#ffffff`, ink `#121212`, hairline `#e2e2e2`, one editorial red
-  `#d0021b`), three local families (Charter → AppleMyungjo, Helvetica Neue →
-  Apple SD Gothic Neo, SF Mono), Korean labels, and **no remote font** — a page
-  that waits on `fonts.googleapis.com` re-flows Hangul into a fallback and the
-  geometry moves. Read the profile before drawing; never re-derive the tokens.
+  Read the reference before drawing; never re-derive the tokens. The skin is eight
+  values (paper `#ffffff`, ink `#121212`, hairline `#e2e2e2`, one editorial red
+  `#d0021b`) and three local families (Charter → AppleMyungjo, Helvetica Neue →
+  Apple SD Gothic Neo, SF Mono). Labels are Korean. **No remote font** — a page
+  waiting on a font CDN re-flows Hangul into a fallback and the geometry moves, so
+  the check rejects every remote reference.
 
-  What the drawing owes the reader is the *mechanism*, at 4/10 density: nine nodes
-  at most, the editorial red on one or two elements only, and by house rule that
-  red marks the failure, the refusal, the dead end — never decoration. If a table
-  or a sentence would carry it better, the honest answer is not to draw.
+  Nine nodes at most, at 4/10 density, and the red marks the failure, the refusal,
+  the dead end — never decoration. If a table or a sentence carries it better, the
+  honest answer is not to draw.
 
-  Export scope is load-bearing: bake **the first `<svg>` only** — the page's
-  eyebrow and title are wrapper and get dropped, exactly as the drawing skill's
-  export contract says. Pixel size is `viewBox` × 2 (a 1000×640 viewBox bakes
-  2000×1280), so the size decision was made when the diagram was drawn, and the
-  bake only picks the multiplier. Paint the paper: the SVG's first child is a
-  `paper` rect, because a transparent PNG loses its ink against the app's dark
-  background. The skill's own PNG export needs Playwright; when it is missing,
-  say so, and if you bake with a browser instead, call it what it is — a manual
-  capture reproducing that scope, verified by measuring the PNG.
+  `hero-bake.sh` is the whole export contract: it runs the check and refuses to
+  write a PNG for a page that fails, keeps **the first `<svg>` only** (the draft's
+  eyebrow and headline are wrapper — the record already carries its title), bakes at
+  `viewBox` × 2 on painted paper, then measures the written pixels and deletes the
+  image if they disagree. A clipped or transparent record image cannot be fixed
+  later: the attachment happens once.
 
   Pass the PNG or JPEG as `image_path` for every new task. The helper only attaches
   it while creating the record; a resumed start returns

@@ -16,24 +16,21 @@ and one-off lookups are not tracked.
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
 - **Open the record with one diagram.** The representative image is a single
-  editorial diagram — one mechanism, drawn once — not a page you typeset. Use the
-  `diagram-design` skill and our skin: the repository's `.diagram-design` marker
-  holds exactly `profile: justsend`, which resolves marker-first to
-  `~/.diagram-design/profiles/justsend.md` — eight colors (paper `#ffffff`, ink
+  diagram — the mechanism of this task, drawn once. The contract, the skin and the
+  tools all ship in this plugin: read
+  `skills/justsend-work/reference/hero-diagram.md`, draw one self-contained HTML
+  page, then run `scripts/hero-check.py draft.html` and
+  `scripts/hero-bake.sh draft.html out.png`. Eight colors (paper `#ffffff`, ink
   `#121212`, hairline `#e2e2e2`, one editorial red `#d0021b`), three local families
   (Charter → AppleMyungjo, Helvetica Neue → Apple SD Gothic Neo, SF Mono), Korean
-  labels, and no remote font, because a page waiting on `fonts.googleapis.com`
-  re-flows Hangul and the geometry moves. Read the profile before drawing; never
-  re-derive the tokens. Nine nodes at most, and the red marks the failure, the
-  refusal, the dead end — never decoration. Run the skill's `self_check.py` on the
-  HTML. Then bake **the first `<svg>` only** at `viewBox` × 2 (1000×640 → 2000×1280)
-  with the paper rect painted: the eyebrow and title are wrapper and get dropped,
-  and a transparent PNG loses its ink on the app's dark background. The skill's PNG
-  export needs Playwright; without it, say so, and if you bake with a browser
-  instead, call it a manual capture of that scope and measure the PNG. Draw it
-  before the first `justsend_work_start` and pass it as `image_path`. A resumed
-  start does not change the existing body or image, so creation is the one
-  attachment chance. Notes are exempt.
+  labels, and **no remote font** — a page waiting on a font CDN re-flows Hangul and
+  the geometry moves. Nine nodes at most, and the red marks the failure, the
+  refusal, the dead end, never decoration. The bake is the export contract: it
+  checks first and writes nothing for a page that fails, keeps the first `<svg>`
+  only at `viewBox` × 2 on painted paper, and deletes the image if the written
+  pixels disagree. Draw it before the first `justsend_work_start` and pass it as
+  `image_path`. A resumed start does not change the existing body or image, so
+  creation is the one attachment chance. Notes are exempt.
 - **Always bind the record to its repository under the project's own name.** Pass
   `project` as the repository directory uppercased with separators removed
   (`ios-prod` -> `IOSPROD`, `mac-prod` -> `MACPROD`) on `justsend_work_start`. That

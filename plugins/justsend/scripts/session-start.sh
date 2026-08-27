@@ -17,9 +17,9 @@ printf 'Resume search resolves identity, then current agent work state, then his
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
 printf 'Pass `project` as the repo directory uppercased with separators removed (ios-prod -> IOSPROD); the raw directory name forks a second numbering axis.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
-printf 'That image is one diagram, not a page you typeset: use the `diagram-design` skill with our skin - the repo marker `.diagram-design` holds `profile: justsend`, which resolves to ~/.diagram-design/profiles/justsend.md (eight colors, three local families, Korean labels, no remote font).\n'
-printf 'Nine nodes at most and the editorial red marks the failure, the refusal, the dead end - never decoration. Run the skill self_check.py on the HTML before baking.\n'
-printf 'Bake the first `<svg>` only, at `viewBox` x 2 (1000x640 -> 2000x1280), with the paper rect painted: the eyebrow and title are wrapper, and a transparent PNG loses its ink on the app dark background. The skill PNG export needs Playwright; without it say so and call a browser bake a manual capture of that scope.\n'
+printf 'That image is one diagram and this plugin carries the whole contract: read skills/justsend-work/reference/hero-diagram.md, then run scripts/hero-check.py and scripts/hero-bake.sh.\n'
+printf 'Eight colors, three local families (Charter, Helvetica Neue, SF Mono with Korean fallbacks), Korean labels, no remote font; nine nodes at most, and the editorial red marks the failure, the refusal, the dead end - never decoration.\n'
+printf 'The bake is the export contract: it checks first and writes nothing for a page that fails, keeps the first `<svg>` only at `viewBox` x 2 on painted paper, then measures the written pixels and deletes the image if they disagree.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then

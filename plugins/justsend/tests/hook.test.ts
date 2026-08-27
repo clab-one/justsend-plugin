@@ -2,7 +2,7 @@
 // destructive guard blocks and allows the same commands the shell tests cover,
 // and a work tool call opens or closes the open-record list.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import justsend, { guardBash, guardComplete, openRecords, workVerb } from "../hooks/post/justsend";
@@ -347,10 +347,12 @@ describe("packaged authoring contract", () => {
       "`Invalid args` or a schema-validation error means the tool did not run",
       "until the corrected call succeeds",
       "uppercased with separators removed",
-      // The page is one diagram now. A newspaper page cost 3KB of hand-written HTML
-      // per record; the drawing skill owns the frame, and our profile owns the skin.
-      "diagram-design",
-      "profile: justsend",
+      // The drawing contract lives here now: a third-party plugin's version
+      // directory is not a path an instruction may point at, because an upgrade
+      // deletes it and the session that reads the line finds nothing.
+      "hero-diagram.md",
+      "hero-check.py",
+      "hero-bake.sh",
       // Export scope is load-bearing: the first `<svg>` only, at viewBox x 2.
       "viewBox",
     ]) {
@@ -373,9 +375,91 @@ describe("packaged authoring contract", () => {
         "dateline",
         "--hed",
         "--deck",
+        // Absorbed: no surface may send a session to another plugin's cache or to a
+        // profile in the home directory. Both move; this repository does not.
+        "diagram-design",
+        ".diagram-design",
+        "<skill-dir>",
+        "Playwright",
       ]) {
         expect(surface).not.toContain(retired);
       }
     }
   });
 });
+
+describe("record diagram tools", () => {
+  const root = join(import.meta.dir, "..");
+  const check = join(root, "scripts", "hero-check.py");
+  const fixture = join(root, "tests", "fixtures", "hero", "ok.html");
+  const run = (path: string) => Bun.spawnSync(["python3", check, path]);
+
+  const draft = () => readFileSync(fixture, "utf8");
+  const mutated = (from: string, to: string) => {
+    const source = draft();
+    expect(source).toContain(from);
+    const path = join(tmpdir(), `hero-${Math.random().toString(36).slice(2)}.html`);
+    writeFileSync(path, source.replace(from, to));
+    return path;
+  };
+
+  test("passes a drawing that keeps the contract, and ships it as the fixture", () => {
+    const result = run(fixture);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toString()).toContain("OK");
+  });
+
+  // Each mutation is one rule from reference/hero-diagram.md, and each is a real
+  // way a record image goes wrong: a font that loads over the network re-flows
+  // Hangul on the next machine; a diagonal connector cannot be traced; a colour
+  // outside the palette makes two records look like two libraries.
+  const violations: [string, string, string, string][] = [
+    ["a remote font", '<meta charset="UTF-8">',
+      '<meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Geist" rel="stylesheet">',
+      "remote reference"],
+    ["a diagonal connector", '<line x1="400" y1="80"  x2="400" y2="112"',
+      '<line x1="400" y1="80"  x2="520" y2="112"', "diagonal <line>"],
+    ["a colour off the palette", 'stroke="#d0021b" stroke-width="1.4"',
+      'stroke="#eb6c36" stroke-width="1.4"', "outside the record palette"],
+    ["box geometry off the 4px grid", '<rect x="300" y="32" width="200" height="48"',
+      '<rect x="301" y="32" width="200" height="48"', "divisible by 4"],
+    ["a script", "</body>", "<script>console.log(1)</script></body>", "<script> is not allowed"],
+    ["an empty description", "<desc id=\"record-hero-desc\">기록", "<desc id=\"record-hero-desc\"></desc><x>기록"],
+  ] as [string, string, string, string][];
+
+  for (const [name, from, to, reason] of violations) {
+    test(`refuses ${name}`, () => {
+      const result = run(mutated(from, to));
+      expect(result.exitCode).toBe(1);
+      const said = result.stderr.toString();
+      expect(said).toContain("FAIL");
+      if (reason) expect(said).toContain(reason);
+    });
+  }
+
+  test("the bake refuses to write a PNG for a drawing that fails the check", () => {
+    const bad = mutated('<line x1="400" y1="80"  x2="400" y2="112"',
+                        '<line x1="400" y1="80"  x2="520" y2="112"');
+    const out = join(tmpdir(), `hero-${Math.random().toString(36).slice(2)}.png`);
+    const result = Bun.spawnSync(["bash", join(root, "scripts", "hero-bake.sh"), bad, out]);
+    expect(result.exitCode).toBe(1);
+    expect(existsSync(out)).toBe(false);
+  });
+
+  test("the tools are executable and carry the export contract", () => {
+    for (const tool of ["hero-check.py", "hero-bake.sh"]) {
+      expect(statSync(join(root, "scripts", tool)).mode & 0o111).toBeGreaterThan(0);
+    }
+    const bake = readFileSync(join(root, "scripts", "hero-bake.sh"), "utf8");
+    // The size claim is measured, not computed: a bake that trusts its own
+    // arithmetic cannot notice a clipped page.
+    expect(bake).toContain("size mismatch");
+    expect(bake).toContain("hero-check.py");
+    const reference = readFileSync(
+      join(root, "skills", "justsend-work", "reference", "hero-diagram.md"), "utf8");
+    expect(reference).toContain("THIRD_PARTY_LICENSES.md");
+    expect(readFileSync(join(root, "..", "..", "THIRD_PARTY_LICENSES.md"), "utf8"))
+      .toContain("MIT License");
+  });
+});
+
