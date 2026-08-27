@@ -15,29 +15,25 @@ and one-off lookups are not tracked.
   safe and never opens a second record. Pass separate `title` and start-time
   `body`: the body is the lede, scope, method and success criteria, not results.
   It returns `item_id` immediately; waiting or polling buys nothing.
-- **Open the record with its front page.** The representative image is one
-  newspaper page, taller than it is wide, and **the renderer owns the frame**: the
-  masthead, dateline, headline and deck are arguments (`--nameplate --dateline
-  --hed --deck`), never markup you write — hand-assembled chrome is why one page
-  carried a 58px sans nameplate with the date beside it and the next a 44px one with
-  the date under the rule. **The nameplate is the work id** —
-  `IOSPROD-17`, the project and this record's number, which you know only when you
-  pass `work_id` yourself; pass it whenever the work already carries a number. When
-  the server issues the number (you passed `project` alone) it arrives after the
-  image is attached, so that page carries the project alone — never guess the next
-  number from a list, the count races with every other agent. The headline carries
-  this record's own title. What you write is the body under the chrome: columns
-  split by hairline rules, and the art that carries the mechanism. Fill the page.
-  The type scale and the page size are fixed — page text that sets `font-size` or
-  `font-family`, and a body-level `<style>` or `<script>`, are rejected, while
-  inside a figure (`svg`) or a sample block (`pre`, `code`) type is yours; anything
-  that does not fit is rejected rather than clipped — a body too tall, or a nameplate
-  or edition past the right margin — so shorten it.
-  Black ink on white paper; never the app's
-  theme, palette or dark mode. Draw the PNG or JPEG before
-  the first `justsend_work_start` and pass it as `image_path`. A resumed start does
-  not change the existing body or image, so creation is the one attachment chance.
-  Notes are exempt.
+- **Open the record with one diagram.** The representative image is a single
+  editorial diagram — one mechanism, drawn once — not a page you typeset. Use the
+  `diagram-design` skill and our skin: the repository's `.diagram-design` marker
+  holds exactly `profile: justsend`, which resolves marker-first to
+  `~/.diagram-design/profiles/justsend.md` — eight colors (paper `#ffffff`, ink
+  `#121212`, hairline `#e2e2e2`, one editorial red `#d0021b`), three local families
+  (Charter → AppleMyungjo, Helvetica Neue → Apple SD Gothic Neo, SF Mono), Korean
+  labels, and no remote font, because a page waiting on `fonts.googleapis.com`
+  re-flows Hangul and the geometry moves. Read the profile before drawing; never
+  re-derive the tokens. Nine nodes at most, and the red marks the failure, the
+  refusal, the dead end — never decoration. Run the skill's `self_check.py` on the
+  HTML. Then bake **the first `<svg>` only** at `viewBox` × 2 (1000×640 → 2000×1280)
+  with the paper rect painted: the eyebrow and title are wrapper and get dropped,
+  and a transparent PNG loses its ink on the app's dark background. The skill's PNG
+  export needs Playwright; without it, say so, and if you bake with a browser
+  instead, call it a manual capture of that scope and measure the PNG. Draw it
+  before the first `justsend_work_start` and pass it as `image_path`. A resumed
+  start does not change the existing body or image, so creation is the one
+  attachment chance. Notes are exempt.
 - **Always bind the record to its repository under the project's own name.** Pass
   `project` as the repository directory uppercased with separators removed
   (`ios-prod` -> `IOSPROD`, `mac-prod` -> `MACPROD`) on `justsend_work_start`. That

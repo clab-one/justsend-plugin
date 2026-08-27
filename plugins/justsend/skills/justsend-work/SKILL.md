@@ -98,42 +98,42 @@ same document.
   reader's language: one plain-language lede, scope or method, and the registered
   success criteria. These are all facts available before execution. Do not invent
   results or failures at start time.
-- **Set the front page before the first `work_start`.** The representative image is
-  one newspaper page, taller than it is wide, and **the renderer owns the frame**:
-  the masthead, the dateline, the headline and the deck arrive as arguments
-  (`--nameplate --dateline --hed --deck`), not as markup you write. Pass them and
-  nothing else about the page:
+- **Draw one diagram before the first `work_start`.** The representative image is
+  a single editorial diagram — one mechanism, drawn once — not a page you typeset.
+  Use the `diagram-design` skill (39 visual types, self-contained HTML + SVG) and
+  our skin: this repository carries `.diagram-design` holding exactly
+  `profile: justsend`, so the drawing resolves marker-first to
+  `~/.diagram-design/profiles/justsend.md` and never touches the shipped default.
 
   ```
-  scripts/hero.sh --tokens                    # colors, the type scale, body classes
-  scripts/hero.sh --nameplate IOSPROD-17 --hed '<this record's title>' \
-                  --deck '<one sentence>' [--dateline '<edition>'] \
-                  --out hero.png < columns.html
+  # 1. draw — the skill's own deliverable, one self-contained HTML file
+  # 2. check — ships with the skill, verifies the accessible-SVG contract
+  python3 <skill-dir>/scripts/self_check.py <file>.html
+  # 3. bake — the first <svg> only, at viewBox x 2, on painted paper
   ```
 
-  Hand-assembling that chrome is what broke the last set of pages: one page carried
-  a bold 58px sans nameplate with the date beside it, the next a letter-spaced 44px
-  one with the date under the rule, so the top band landed 14px apart and no two
-  records looked like the same paper. **The nameplate is the work id** —
-  `IOSPROD-17`, the project and this record's number, in the same place every time,
-  the way a paper's name and its edition never move. You know that string only when
-  you pass `work_id` yourself, so pass it whenever the work already carries a number
-  — an issue, a build, a tracker item. When you pass `project` alone the server
-  issues the number atomically and you learn it in the response, after the image is
-  already attached: that page carries the project and nothing more. Never guess the
-  next number from a list to fill the gap — the count races with every other agent,
-  and a duplicate number makes two records answer to one name.
-  What you do write is the body below the chrome: how many columns, what goes in
-  them, which figure carries the mechanism. Fill the page — a column left half
-  empty is margin, not a page. Body layout is yours; the type scale and the page
-  size are not. Page text that sets `font-size` or `font-family` in a `style`
-  attribute, and a body-level `<style>` or `<script>`, are rejected (exit 2) —
-  inside a figure (`svg`) or a sample block (`pre`, `code`) you set type freely,
-  because a diagram's labels are not page type. Anything that does not fit is
-  rejected (exit 3) instead of being silently clipped — a body too tall for the
-  page, and equally a nameplate or edition that runs past the right margin, since
-  the dateline holds one line. Shorten it; the page does not grow. Read `--tokens`
-  for the colors, the type scale and the body classes before writing the first page.
+  That profile is what makes two records look like one library: eight colors
+  (paper `#ffffff`, ink `#121212`, hairline `#e2e2e2`, one editorial red
+  `#d0021b`), three local families (Charter → AppleMyungjo, Helvetica Neue →
+  Apple SD Gothic Neo, SF Mono), Korean labels, and **no remote font** — a page
+  that waits on `fonts.googleapis.com` re-flows Hangul into a fallback and the
+  geometry moves. Read the profile before drawing; never re-derive the tokens.
+
+  What the drawing owes the reader is the *mechanism*, at 4/10 density: nine nodes
+  at most, the editorial red on one or two elements only, and by house rule that
+  red marks the failure, the refusal, the dead end — never decoration. If a table
+  or a sentence would carry it better, the honest answer is not to draw.
+
+  Export scope is load-bearing: bake **the first `<svg>` only** — the page's
+  eyebrow and title are wrapper and get dropped, exactly as the drawing skill's
+  export contract says. Pixel size is `viewBox` × 2 (a 1000×640 viewBox bakes
+  2000×1280), so the size decision was made when the diagram was drawn, and the
+  bake only picks the multiplier. Paint the paper: the SVG's first child is a
+  `paper` rect, because a transparent PNG loses its ink against the app's dark
+  background. The skill's own PNG export needs Playwright; when it is missing,
+  say so, and if you bake with a browser instead, call it what it is — a manual
+  capture reproducing that scope, verified by measuring the PNG.
+
   Pass the PNG or JPEG as `image_path` for every new task. The helper only attaches
   it while creating the record; a resumed start returns
   `image_status: ignored_existing_record` and does not change the existing body or

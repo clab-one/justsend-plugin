@@ -17,9 +17,9 @@ printf 'Resume search resolves identity, then current agent work state, then his
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
 printf 'Pass `project` as the repo directory uppercased with separators removed (ios-prod -> IOSPROD); the raw directory name forks a second numbering axis.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
-printf 'That image is one portrait newspaper page whose frame belongs to the renderer: pass the masthead, dateline, headline and deck as arguments (`--nameplate --dateline --hed --deck`) and write only the body under them.\n'
-printf 'The nameplate is the work id (IOSPROD-17) when you pass `work_id`; a server-issued number arrives after the image is attached, and guessing it races, so those pages carry the project alone. This record title is the headline.\n'
-printf 'The type scale and the page size are fixed: page text that sets `font-size` or `font-family`, and a body-level `<style>` or `<script>`, are rejected, while inside a figure (svg) or sample block (pre, code) type is yours. Anything that does not fit is rejected, not clipped - a body too tall, or a nameplate or edition past the right margin. Black ink on white paper, never the app theme.\n'
+printf 'That image is one diagram, not a page you typeset: use the `diagram-design` skill with our skin - the repo marker `.diagram-design` holds `profile: justsend`, which resolves to ~/.diagram-design/profiles/justsend.md (eight colors, three local families, Korean labels, no remote font).\n'
+printf 'Nine nodes at most and the editorial red marks the failure, the refusal, the dead end - never decoration. Run the skill self_check.py on the HTML before baking.\n'
+printf 'Bake the first `<svg>` only, at `viewBox` x 2 (1000x640 -> 2000x1280), with the paper rect painted: the eyebrow and title are wrapper, and a transparent PNG loses its ink on the app dark background. The skill PNG export needs Playwright; without it say so and call a browser bake a manual capture of that scope.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'
 
 if open=$(js_open_records); then

@@ -57,7 +57,11 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.11.1 states that anything past the frame is rejected, not
+> **Version history:** 0.12.0 retires the newspaper page. The representative image is
+> one editorial diagram drawn with the `diagram-design` skill under our own profile
+> (`.diagram-design` → `profile: justsend`): eight colors, three local families, Korean
+> labels, no remote font. The bake is the first `<svg>` only at `viewBox` × 2 on painted
+> paper. 0.11.1 stated that anything past the frame is rejected, not
 > clipped: a body too tall for the page, and a nameplate or edition that runs past
 > the right margin. 0.11.0 hands the page frame to the renderer. The masthead,
 > dateline, headline and deck are arguments (`--nameplate --dateline --hed --deck`);
