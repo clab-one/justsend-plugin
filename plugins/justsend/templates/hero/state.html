@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><title>같은 것이 여러 상태 중 하나에 있다</title><style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --serif: Charter, "Times New Roman", AppleMyungjo, "Hiragino Mincho ProN", "Songti SC", serif;
+    --sans: "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Hiragino Sans", "PingFang SC", sans-serif;
+    --mono: "SF Mono", Menlo, ui-monospace, monospace;
+  }
+  body{width:1200px;height:760px;overflow:hidden;font-family:var(--sans);
+       background:#ffffff;color:#121212;padding:48px 40px;
+       display:flex;flex-direction:column;
+       -webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.18em;color:#666666}
+  h1{font-family:var(--serif);font-size:40px;font-weight:400;letter-spacing:-0.02em;
+     line-height:1.15;margin:8px 0 16px}
+  svg{width:100%;display:block}
+  svg text{font-family:var(--sans)}
+  svg text.mono{font-family:var(--mono)}
+</style></head>
+<body>
+  <p class="eyebrow">상태 · JUSTSEND 기록</p>
+  <h1>같은 것이 여러 상태 중 하나에 있다</h1>
+  <svg viewBox="0 0 1000 480" xmlns="http://www.w3.org/2000/svg" data-type="state"
+       role="img" aria-labelledby="record-hero-title record-hero-desc">
+    <title id="record-hero-title">세 상태와 이름 붙은 전이, 그리고 종단 상태</title>
+    <desc id="record-hero-desc">같은 대상이 세 상태를 이름 붙은 전이로 옮겨 다니고, 마지막 상태에서 한 갈래가 종단으로 빠진다.</desc>
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#363636"/></marker>
+      <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#d0021b"/></marker>
+    </defs>
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <line x1="240" y1="224" x2="396" y2="224" stroke="#363636" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="604" y1="224" x2="760" y2="224" stroke="#363636" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="864" y1="276" x2="864" y2="316" stroke="#d0021b" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+    <rect x="272" y="196" width="88" height="20" fill="#ffffff"/>
+    <text x="318" y="210" class="mono" font-size="8" fill="#666666" text-anchor="middle">무엇이 일어나면</text>
+    <rect x="636" y="196" width="88" height="20" fill="#ffffff"/>
+    <text x="682" y="210" class="mono" font-size="8" fill="#666666" text-anchor="middle">무엇이 일어나면</text>
+    <rect x="872" y="284" width="52" height="20" fill="#ffffff"/>
+    <text x="898" y="298" class="mono" font-size="8" fill="#d0021b" text-anchor="middle">실패하면</text>
+    <rect x="40" y="176" width="192" height="96" rx="8" fill="#ffffff" stroke="#121212" stroke-width="1.2"/>
+    <text x="136" y="218" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">첫 상태</text>
+    <text x="136" y="240" class="mono" font-size="9" fill="#666666" text-anchor="middle">무엇이 참이다</text>
+    <rect x="404" y="176" width="192" height="96" rx="8" fill="#ffffff" stroke="#121212" stroke-width="1.2"/>
+    <text x="500" y="218" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">다음 상태</text>
+    <text x="500" y="240" class="mono" font-size="9" fill="#666666" text-anchor="middle">무엇이 참이다</text>
+    <rect x="768" y="176" width="192" height="96" rx="8" fill="#ffffff" stroke="#121212" stroke-width="1.2"/>
+    <text x="864" y="218" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">마지막 상태</text>
+    <text x="864" y="240" class="mono" font-size="9" fill="#666666" text-anchor="middle">무엇이 참이다</text>
+    <rect x="768" y="320" width="192" height="96" rx="8" fill="rgba(208,2,27,0.06)" stroke="#d0021b" stroke-width="1.2"/>
+    <text x="864" y="362" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">종단</text>
+    <text x="864" y="384" class="mono" font-size="9" fill="#666666" text-anchor="middle">더 가지 않는다</text>
+    <line x1="40" y1="400" x2="960" y2="400" stroke="#e2e2e2" stroke-width="1"/>
+    <text x="40" y="428" class="mono" font-size="9" fill="#666666">둥근 사각 = 상태 · 화살표 이름 = 전이 · 붉은 테두리 = 종단 상태</text>
+  </svg>
+</body>
+</html>

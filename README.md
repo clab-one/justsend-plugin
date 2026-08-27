@@ -57,7 +57,13 @@ behavior applies to the record server:
 - **No port or token is required.** Register the fixed helper path. If the
   helper is moved or removed, reinstall it using the canonical guide.
 
-> **Version history:** 0.13.0 absorbs the drawing contract. The skin, the six shapes,
+> **Version history:** 0.14.0 gives every story its own drawn page: ten types
+> (흐름 단계 상태 구조 순서 비교 루프 시간축 주체별흐름 원인분해) ship as templates
+> under `templates/hero/`, the svg declares its type with `data-type`, and the
+> check reads that declaration so the bake enforces it. Five of the ten are named
+> after an element the check can look for; the other five are declaration only,
+> because guessing validity from the shape inventory rejects correct drawings.
+> The retired fixture is gone - the templates are the fixtures. 0.13.0 absorbs the drawing contract. The skin, the six shapes,
 > the ten rules, a dependency-free `hero-check.py` and a `hero-bake.sh` that checks,
 > bakes and measures all ship here, so no instruction points at another plugin's
 > version directory or a profile in the home directory. Attribution:

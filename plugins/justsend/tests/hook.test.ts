@@ -363,6 +363,17 @@ describe("packaged authoring contract", () => {
     // The retired axis and nameplate wording must be gone, not merely outvoted by a
     // newer sentence: `project` used to be the raw directory basename, which forks a
     // second numbering series, and the nameplate used to be the project alone.
+    // The templates only fix the "always a flowchart" default if the surfaces an
+    // agent actually reads point at them. Naming the reference is not enough: it
+    // is the copyable page that removes the reason to invent coordinates.
+    for (const surface of policySurfaces) {
+      expect(surface).toContain("templates/hero");
+      expect(surface).toContain("data-type");
+      for (const story of ["flow", "loop", "timeline", "swimlane", "cause"]) {
+        expect(surface).toContain(story);
+      }
+    }
+
     for (const surface of policySurfaces) {
       expect(surface).not.toContain("directory basename");
       // The newspaper page is retired, not outvoted. Every word that told an agent to
@@ -391,8 +402,24 @@ describe("packaged authoring contract", () => {
 describe("record diagram tools", () => {
   const root = join(import.meta.dir, "..");
   const check = join(root, "scripts", "hero-check.py");
-  const fixture = join(root, "tests", "fixtures", "hero", "ok.html");
-  const run = (path: string) => Bun.spawnSync(["python3", check, path]);
+  const templates = join(root, "templates", "hero");
+  // The templates are the fixtures: an example nobody ships is an example nobody
+  // keeps working, and a second copy would drift from the one agents actually open.
+  const fixture = join(templates, "flow.html");
+  const run = (path: string, story?: string) =>
+    Bun.spawnSync(story ? ["python3", check, "--type", story, path] : ["python3", check, path]);
+
+  const STORIES = ["flow", "pipeline", "state", "structure", "sequence",
+                   "comparison", "loop", "timeline", "swimlane", "cause"];
+  // Removing exactly the element the type is named after. The other five types
+  // are declaration only, and the test below proves the check does not guess.
+  const DEFINING: Record<string, [RegExp, string]> = {
+    sequence: [/ stroke-dasharray="3 4"/g, "dashed vertical lifelines"],
+    timeline: [/<line x1="72" y1="240" x2="944" y2="240"[^/]*\/>/, "time axis"],
+    swimlane: [/ class="lane"/g, 'class="lane"'],
+    cause: [/<line x1="104" y1="240" x2="824" y2="240"[^/]*\/>/, "spine"],
+    loop: [/<path d="M 800 240[\s\S]*?\/>/, "returns to an earlier point"],
+  };
 
   const draft = () => readFileSync(fixture, "utf8");
   const mutated = (from: string, to: string) => {
@@ -403,10 +430,80 @@ describe("record diagram tools", () => {
     return path;
   };
 
-  test("passes a drawing that keeps the contract, and ships it as the fixture", () => {
-    const result = run(fixture);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString()).toContain("OK");
+  test("ships one drawn template per story, and every one keeps the contract", () => {
+    expect(readdirSync(templates).sort()).toEqual(STORIES.map((s) => `${s}.html`).sort());
+    const bodies = new Set<string>();
+    for (const story of STORIES) {
+      const path = join(templates, `${story}.html`);
+      expect(readFileSync(path, "utf8")).toContain(`data-type="${story}"`);
+      expect(run(path).exitCode).toBe(0);
+      expect(run(path, story).exitCode).toBe(0);
+      bodies.add(readFileSync(path, "utf8").split('<rect width="100%"')[1]);
+    }
+    // Ten templates that were one template with new labels would not fix anything.
+    expect(bodies.size).toBe(STORIES.length);
+  });
+
+  test("refuses a story outside the vocabulary, and a flag that contradicts the page", () => {
+    const unknown = mutated('data-type="flow"', 'data-type="fishbone"');
+    expect(run(unknown).exitCode).toBe(1);
+    expect(run(unknown).stderr.toString()).toContain("is not one of");
+    const crossed = run(fixture, "loop");
+    expect(crossed.exitCode).toBe(1);
+    expect(crossed.stderr.toString()).toContain("contradicts the page");
+  });
+
+  test("looks for the element each of the five types is named after", () => {
+    for (const [story, [pattern, reason]] of Object.entries(DEFINING)) {
+      const source = readFileSync(join(templates, `${story}.html`), "utf8");
+      const stripped = source.replace(pattern, "");
+      expect(stripped).not.toBe(source);
+      const path = join(tmpdir(), `hero-${story}-${Math.random().toString(36).slice(2)}.html`);
+      writeFileSync(path, stripped);
+      const result = run(path);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr.toString()).toContain(reason);
+    }
+  });
+
+  test("never guesses validity from the shape inventory", () => {
+    // Each of these is a correct drawing that a shape-counting checker would
+    // reject: a linear flow, a square-cornered state machine, a pipeline with no
+    // chips, a structure with no zone box, a comparison with one axis.
+    const allowed: [string, RegExp][] = [
+      ["flow", /<(polygon points="500|ellipse)[^/]*\/>/g],
+      ["state", / rx="8"/g],
+      ["pipeline", /<rect x="(36|804)" y="(72|316)"[^/]*\/>/g],
+      ["structure", /<rect x="(40|520)" y="96"[^/]*\/>/g],
+      ["comparison", /<line x1="120" y1="464" x2="120" y2="88"[^/]*\/>/],
+    ];
+    for (const [story, pattern] of allowed) {
+      const source = readFileSync(join(templates, `${story}.html`), "utf8");
+      const stripped = source.replace(pattern, "");
+      expect(stripped).not.toBe(source);
+      const path = join(tmpdir(), `hero-ok-${story}-${Math.random().toString(36).slice(2)}.html`);
+      writeFileSync(path, stripped);
+      expect(run(path).exitCode).toBe(0);
+    }
+  });
+
+  test("a swimlane divider must be declared and full-width, not one or the other", () => {
+    const source = readFileSync(join(templates, "swimlane.html"), "utf8");
+    const cases = [
+      // the case a geometry-only rule got wrong: one lane plus the legend hairline
+      source.replace(/    <line class="lane" x1="40" y1="(216|336)"[^/]*\/>\n/g, ""),
+      // and the case a class-only rule would get wrong: `lane` on short strokes
+      source.replace(/x1="40" y1="(96|216)" x2="960"/g, 'x1="40" y1="$1" x2="200"')
+            .replace(/    <line class="lane" x1="40" y1="336"[^/]*\/>\n/, ""),
+    ];
+    for (const body of cases) {
+      expect(body).not.toBe(source);
+      const path = join(tmpdir(), `hero-sw-${Math.random().toString(36).slice(2)}.html`);
+      writeFileSync(path, body);
+      const result = run(path);
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr.toString()).toContain('class="lane"');
+    }
   });
 
   // Each mutation is one rule from reference/hero-diagram.md, and each is a real
@@ -417,14 +514,14 @@ describe("record diagram tools", () => {
     ["a remote font", '<meta charset="UTF-8">',
       '<meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Geist" rel="stylesheet">',
       "remote reference"],
-    ["a diagonal connector", '<line x1="400" y1="80"  x2="400" y2="112"',
-      '<line x1="400" y1="80"  x2="520" y2="112"', "diagonal <line>"],
-    ["a colour off the palette", 'stroke="#d0021b" stroke-width="1.4"',
-      'stroke="#eb6c36" stroke-width="1.4"', "outside the record palette"],
-    ["box geometry off the 4px grid", '<rect x="300" y="32" width="200" height="48"',
-      '<rect x="301" y="32" width="200" height="48"', "divisible by 4"],
+    ["a diagonal connector", '<line x1="500" y1="92" x2="500" y2="132"',
+      '<line x1="500" y1="92" x2="620" y2="132"', "diagonal <line>"],
+    ["a colour off the palette", 'stroke="#d0021b" stroke-width="1.2"',
+      'stroke="#eb6c36" stroke-width="1.2"', "outside the record palette"],
+    ["box geometry off the 4px grid", '<rect x="412" y="136" width="176" height="72"',
+      '<rect x="413" y="136" width="176" height="72"', "divisible by 4"],
     ["a script", "</body>", "<script>console.log(1)</script></body>", "<script> is not allowed"],
-    ["an empty description", "<desc id=\"record-hero-desc\">기록", "<desc id=\"record-hero-desc\"></desc><x>기록"],
+    ["an empty description", '<desc id="record-hero-desc">시작', '<desc id="record-hero-desc"></desc><x>시작'],
   ] as [string, string, string, string][];
 
   for (const [name, from, to, reason] of violations) {
@@ -438,8 +535,8 @@ describe("record diagram tools", () => {
   }
 
   test("the bake refuses to write a PNG for a drawing that fails the check", () => {
-    const bad = mutated('<line x1="400" y1="80"  x2="400" y2="112"',
-                        '<line x1="400" y1="80"  x2="520" y2="112"');
+    const bad = mutated('<line x1="500" y1="92" x2="500" y2="132"',
+                        '<line x1="500" y1="92" x2="620" y2="132"');
     const out = join(tmpdir(), `hero-${Math.random().toString(36).slice(2)}.png`);
     const result = Bun.spawnSync(["bash", join(root, "scripts", "hero-bake.sh"), bad, out]);
     expect(result.exitCode).toBe(1);

@@ -17,7 +17,7 @@ printf 'Resume search resolves identity, then current agent work state, then his
 printf 'Open with separate `title` and brief `body`; never use the retired `task` payload.\n'
 printf 'Pass `project` as the repo directory uppercased with separators removed (ios-prod -> IOSPROD); the raw directory name forks a second numbering axis.\n'
 printf 'Attach `image_path` on the first `justsend_work_start`; resumed starts do not change it.\n'
-printf 'That image is one diagram and this plugin carries the whole contract: read skills/justsend-work/reference/hero-diagram.md, then run scripts/hero-check.py and scripts/hero-bake.sh.\n'
+printf 'That image is one diagram. Read skills/justsend-work/reference/hero-diagram.md, ask what the reader must learn, and copy that type from templates/hero/ (ten are drawn: flow pipeline state structure sequence comparison loop timeline swimlane cause); declare it with <svg data-type>, then run scripts/hero-check.py and scripts/hero-bake.sh.\n'
 printf 'Eight colors, three local families (Charter, Helvetica Neue, SF Mono with Korean fallbacks), Korean labels, no remote font; nine nodes at most, and the editorial red marks the failure, the refusal, the dead end - never decoration.\n'
 printf 'The bake is the export contract: it checks first and writes nothing for a page that fails, keeps the first `<svg>` only at `viewBox` x 2 on painted paper, then measures the written pixels and deletes the image if they disagree.\n'
 printf 'Close with the verified `summary` note on `justsend_work_complete`.\n'

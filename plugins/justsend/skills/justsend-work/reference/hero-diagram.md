@@ -49,20 +49,70 @@ No dark variant. No dot pattern. No shadows. No secondary container behind the
 figure. The record image is one light page because it hangs in a library beside the
 others.
 
-## Six shapes of story
+## Ten shapes of story
 
-Pick by what the reader must learn, then draw the smallest version of it.
+**Ask what the reader must learn, then take that template.** Every one of the ten
+is a real page with coordinates in `plugins/justsend/templates/hero/<key>.html`:
+open it, keep the frame, replace the labels. Writing coordinates from scratch is
+how a record ends up as a flowchart that was never the right shape.
 
-| Type | Use when | Convention |
+| The reader must learn… | Type | Template |
 |---|---|---|
-| **흐름** flow | A decision decides the outcome | Top→down. Oval start/end, rect step, diamond decision (≤3 exits). Label every branch |
-| **단계** pipeline | Order matters, no branching | Left→right or top→down. Rect steps, one arrow each, chips for what enters and leaves |
-| **상태** state | The same thing is in one of several states | Rounded rects, labelled transitions, the terminal state last |
-| **구조** structure | Parts and who calls whom | Boxes grouped by zone, arrows for calls. Dashed for optional or async |
-| **순서** sequence | Messages between actors over time | Actors across the top, lifelines down, messages as horizontal arrows in time order |
-| **비교** comparison | Two axes place the options | Two axes, quiet quadrant labels, ≤12 items, the focal item in accent |
+| which condition decided the outcome | **흐름** flow | `flow.html` |
+| what happens in what order, no branching | **단계** pipeline | `pipeline.html` |
+| which of several states the thing is in | **상태** state | `state.html` |
+| which parts exist and who calls whom | **구조** structure | `structure.html` |
+| who said what to whom, in time order | **순서** sequence | `sequence.html` |
+| where the options fall on two axes | **비교** comparison | `comparison.html` |
+| that it comes back around until a condition holds | **루프** loop | `loop.html` |
+| that the *gaps* between events are the point | **시간축** timeline | `timeline.html` |
+| that the same flow splits by who performs it | **주체별 흐름** swimlane | `swimlane.html` |
+| that one failure has several causes behind it | **원인 분해** cause | `cause.html` |
 
 Above nine nodes it is two diagrams. Split it: overview first, detail second.
+
+### What each type owes the reader
+
+| Type | Convention |
+|---|---|
+| 흐름 | Top→down. Oval start/end, rect step, diamond decision (≤3 exits). Label every branch — an unlabelled fork decides nothing |
+| 단계 | Left→right or top→down. Rect steps, one arrow each, chips for what enters and leaves |
+| 상태 | Rounded rects, transitions carry the event that causes them, the terminal state last |
+| 구조 | Boxes grouped by zone, arrows for calls. Dashed for optional or async |
+| 순서 | Actors across the top, dashed lifelines down, messages as horizontal arrows in time order |
+| 비교 | Two axes, quiet quadrant labels, ≤12 items, the focal item in accent |
+| 루프 | Forward steps in a row, one returning path carrying the condition that sends it back. The return is accent when it is a failure |
+| 시간축 | **Distance is proportional to elapsed time**, and the page states the scale (`하루 = 96px`). Equal spacing for unequal gaps makes this type a lie |
+| 주체별 흐름 | Horizontal bands per actor, the actor's name at the left, a handoff crossing a band with one elbow. Each divider is a full-width hairline carrying `class="lane"` — the legend strip is a full-width hairline too, so lanes are declared, not guessed |
+| 원인 분해 | A spine to the effect, **right-angled** ribs for cause groups. Ours is a comb, not a fish: rule 2 rejects a slanted line everywhere, so 60° bones are not available here |
+
+## What the check judges, and what it cannot
+
+Declare the type on the svg — `<svg data-type="loop">` — and the check reads it
+with no flag, so `hero-bake.sh` enforces it too. `--type <key>` asserts a type
+from the outside and contradicting the page is an error.
+
+Five of the ten are named after an element without which the drawing is not that
+type, and the check looks for exactly that element and nothing more:
+
+| Type | The element it looks for |
+|---|---|
+| 순서 | two or more dashed vertical lifelines |
+| 시간축 | one arrow-headed time axis across 70% of the page |
+| 주체별 흐름 | two or more full-width `<line class="lane">` hairlines |
+| 원인 분해 | one spine, and two or more ribs meeting it |
+| 루프 | one arrow-headed `<path>` that ends back before it started |
+
+The other five — 흐름 · 단계 · 상태 · 구조 · 비교 — are **declaration only.** A flow
+can be linear with no diamond, a state machine can have square corners, a
+comparison can carry one axis if the second is implied. A check that guessed
+validity from the shape inventory would reject correct drawings, so it does not
+guess.
+
+**Nothing here judges meaning.** The check cannot tell a truthful 구조 from a
+wrong one, cannot see whether your timeline's pixels match your dates, and cannot
+know if 비교 was the right choice. Those stay with you, and the legend is where you
+promise them to the reader.
 
 ## The rules that keep it readable
 
@@ -104,8 +154,10 @@ drawing that cannot be traced.
 
 ## The page
 
-Start from this skeleton. The eyebrow and the `<h1>` are wrapper: they help you
-read the draft in a browser and the bake drops them.
+Every template already carries this frame — copy the one for your type instead of
+typing it out. It is here so you can read what the frame is made of. The eyebrow
+and the `<h1>` are wrapper: they help you read the draft in a browser and the bake
+drops them.
 
 ```html
 <!DOCTYPE html>
@@ -127,7 +179,7 @@ read the draft in a browser and the bake drops them.
 <body>
   <p class="eyebrow">흐름 · JUSTSEND 기록</p>
   <h1>이 기록의 제목</h1>
-  <svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg"
+  <svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg" data-type="flow"
        role="img" aria-labelledby="record-hero-title record-hero-desc">
     <title id="record-hero-title">한 줄 이름</title>
     <desc id="record-hero-desc">이 그림이 무엇을 보여주는지 한 문장.</desc>
@@ -150,7 +202,9 @@ with `class="mono"`. Arrow labels are `--mono` 8px, ≤14 characters.
 ## Check, then bake
 
 ```bash
-plugins/justsend/scripts/hero-check.py  draft.html          # rules 1-10, no deps
+plugins/justsend/templates/hero/loop.html                   # start here, not from zero
+plugins/justsend/scripts/hero-check.py  draft.html          # rules 1-10 + declared type
+plugins/justsend/scripts/hero-check.py  --type loop draft.html   # assert from outside
 plugins/justsend/scripts/hero-bake.sh   draft.html out.png  # checks, then bakes
 ```
 
@@ -168,8 +222,21 @@ attaches — a resumed start returns `image_status: ignored_existing_record`.
 
 ## Attribution
 
-The taxonomy, the connector rules and the accessible-SVG contract in this file are
-adapted from **Diagram Design** by Cathryn Lavery (MIT), restructured for one
-purpose: a single record image, one fixed skin, no profile resolution. Upstream
-ships 39 types, client profiles, motion, importers and a gallery; none of that is
-here. Full license text: `THIRD_PARTY_LICENSES.md`.
+The connector rules and the accessible-SVG contract in this file are adapted from
+**Diagram Design** by Cathryn Lavery (MIT), restructured for one purpose: a single
+record image, one fixed skin, no profile resolution. Full license text:
+`THIRD_PARTY_LICENSES.md`.
+
+Upstream ships 39 reference recipes — they are recipes, not switches on a
+generator, and nothing here generates a drawing for you. Of those 39, seven are
+numeric charts (bar, line, scatter, polar, radar, sankey, treemap) and four are
+planning boards (gantt, kanban, story-map, journey): a record image carries a
+mechanism, and numbers belong in the body's table. Twelve fold into 구조 and five
+into 비교, because four files describing "boxes in zones with call arrows" are one
+convention. What is deliberately still folded away: `tree` and `nested` are 구조
+with a hierarchy, `er` and `db-schema` are 구조 with a data shape.
+
+**One shape here departs from upstream.** Upstream `fishbone` requires 60° bones
+off the spine; our rule 2 rejects a slanted `<line>` on every page, for every
+type. So 원인 분해 is a comb with right-angled ribs — the same story inside our
+rules — and it is not named `fishbone`, so nobody inherits the wrong expectation.

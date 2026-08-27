@@ -104,10 +104,19 @@ same document.
   machine is the same drawing on every other one:
 
   ```
-  skills/justsend-work/reference/hero-diagram.md   the skin, the six shapes, the ten rules
-  scripts/hero-check.py  draft.html                rules 1-10, no dependencies
+  skills/justsend-work/reference/hero-diagram.md   the skin, the ten types, the ten rules
+  templates/hero/<type>.html                       ten drawn pages — start from one
+  scripts/hero-check.py  draft.html                rules 1-10 + the declared type
   scripts/hero-bake.sh   draft.html out.png        checks, bakes, measures
   ```
+
+  **Ask what the reader must learn, then take that template.** Ten types, one drawn
+  page each: `flow` `pipeline` `state` `structure` `sequence` `comparison` `loop`
+  `timeline` `swimlane` `cause` (흐름·단계·상태·구조·순서·비교·루프·시간축·주체별
+  흐름·원인 분해). Copy the file, keep the frame, replace the labels. Typing
+  coordinates from scratch is how every record ends up a flowchart that was never
+  the right shape. Declare the choice on the svg — `<svg data-type="loop">` — and
+  the check reads it with no flag, so the bake enforces it too.
 
   Read the reference before drawing; never re-derive the tokens. The skin is eight
   values (paper `#ffffff`, ink `#121212`, hairline `#e2e2e2`, one editorial red

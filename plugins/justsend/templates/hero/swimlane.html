@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"><title>같은 흐름을 누가 하느냐로 갈라 본다</title><style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --serif: Charter, "Times New Roman", AppleMyungjo, "Hiragino Mincho ProN", "Songti SC", serif;
+    --sans: "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Hiragino Sans", "PingFang SC", sans-serif;
+    --mono: "SF Mono", Menlo, ui-monospace, monospace;
+  }
+  body{width:1200px;height:800px;overflow:hidden;font-family:var(--sans);
+       background:#ffffff;color:#121212;padding:48px 40px;
+       display:flex;flex-direction:column;
+       -webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:0.18em;color:#666666}
+  h1{font-family:var(--serif);font-size:40px;font-weight:400;letter-spacing:-0.02em;
+     line-height:1.15;margin:8px 0 16px}
+  svg{width:100%;display:block}
+  svg text{font-family:var(--sans)}
+  svg text.mono{font-family:var(--mono)}
+</style></head>
+<body>
+  <p class="eyebrow">주체별 흐름 · JUSTSEND 기록</p>
+  <h1>같은 흐름을 누가 하느냐로 갈라 본다</h1>
+  <svg viewBox="0 0 1000 520" xmlns="http://www.w3.org/2000/svg" data-type="swimlane"
+       role="img" aria-labelledby="record-hero-title record-hero-desc">
+    <title id="record-hero-title">세 주체의 띠를 건너며 인계되는 하나의 흐름</title>
+    <desc id="record-hero-desc">하나의 흐름이 세 주체의 띠를 차례로 건너가고, 마지막 띠에서 거절되어 멈춘다.</desc>
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#363636"/></marker>
+      <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#d0021b"/></marker>
+    </defs>
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <line class="lane" x1="40" y1="96" x2="960" y2="96" stroke="#e2e2e2" stroke-width="1"/>
+    <line class="lane" x1="40" y1="216" x2="960" y2="216" stroke="#e2e2e2" stroke-width="1"/>
+    <line class="lane" x1="40" y1="336" x2="960" y2="336" stroke="#e2e2e2" stroke-width="1"/>
+    <path d="M 320 192 L 320 276 A 8 8 0 0 0 328 284 L 468 284" fill="none" stroke="#363636" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M 560 320 L 560 404 A 8 8 0 0 0 568 412 L 708 412" fill="none" stroke="#363636" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <rect x="368" y="252" width="64" height="20" fill="#ffffff"/>
+    <text x="400" y="266" class="mono" font-size="8" fill="#666666" text-anchor="middle">인계한다</text>
+    <rect x="608" y="380" width="64" height="20" fill="#ffffff"/>
+    <text x="640" y="394" class="mono" font-size="8" fill="#666666" text-anchor="middle">인계한다</text>
+    <text x="56" y="162" class="mono" font-size="9" fill="#666666" text-anchor="start">주체 하나</text>
+    <text x="56" y="282" class="mono" font-size="9" fill="#666666" text-anchor="start">주체 둘</text>
+    <text x="56" y="402" class="mono" font-size="9" fill="#666666" text-anchor="start">주체 셋</text>
+    <rect x="232" y="120" width="176" height="72" fill="#ffffff" stroke="#121212" stroke-width="1.2"/>
+    <text x="320" y="160" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">무엇을 한다</text>
+    <rect x="472" y="248" width="176" height="72" fill="#ffffff" stroke="#121212" stroke-width="1.2"/>
+    <text x="560" y="288" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">무엇을 한다</text>
+    <rect x="712" y="376" width="176" height="72" fill="rgba(208,2,27,0.06)" stroke="#d0021b" stroke-width="1.2"/>
+    <text x="800" y="416" font-size="12" font-weight="600" fill="#121212" text-anchor="middle">거절한다</text>
+    <line x1="40" y1="480" x2="960" y2="480" stroke="#e2e2e2" stroke-width="1"/>
+    <text x="40" y="508" class="mono" font-size="9" fill="#666666">가로 띠 = 주체 · 사각 = 단계 · 화살표 = 인계 · 붉은 테두리 = 거절</text>
+  </svg>
+</body>
+</html>

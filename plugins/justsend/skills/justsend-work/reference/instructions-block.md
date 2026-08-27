@@ -18,9 +18,12 @@ and one-off lookups are not tracked.
 - **Open the record with one diagram.** The representative image is a single
   diagram — the mechanism of this task, drawn once. The contract, the skin and the
   tools all ship in this plugin: read
-  `skills/justsend-work/reference/hero-diagram.md`, draw one self-contained HTML
-  page, then run `scripts/hero-check.py draft.html` and
-  `scripts/hero-bake.sh draft.html out.png`. Eight colors (paper `#ffffff`, ink
+  `skills/justsend-work/reference/hero-diagram.md`, ask what the reader must learn,
+  and copy the template for that answer from `templates/hero/` — ten types are
+  drawn already (`flow` `pipeline` `state` `structure` `sequence` `comparison`
+  `loop` `timeline` `swimlane` `cause`), so keep the frame and replace the labels.
+  Declare it with `<svg data-type="loop">`, then run
+  `scripts/hero-check.py draft.html` and `scripts/hero-bake.sh draft.html out.png`. Eight colors (paper `#ffffff`, ink
   `#121212`, hairline `#e2e2e2`, one editorial red `#d0021b`), three local families
   (Charter → AppleMyungjo, Helvetica Neue → Apple SD Gothic Neo, SF Mono), Korean
   labels, and **no remote font** — a page waiting on a font CDN re-flows Hangul and
