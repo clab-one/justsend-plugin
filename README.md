@@ -28,7 +28,7 @@ client version.
 
 Install the helper from the canonical guide:
 **https://justsend.cloud/install**. The app's **Settings → Agent access** screen
-links to this page. Plugin 0.9.0's card-authoring payload requires helper 1.3.0
+links to this page. The plugin's card-authoring payload requires helper 1.3.0
 or later; verify `justsend_health.server_version` before enabling the plugin.
 
 This README documents plugin installation and harness-specific helper
